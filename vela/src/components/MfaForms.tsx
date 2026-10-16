@@ -193,19 +193,18 @@ function AuthenticatorStep({ method, contact, onBack }: { method: MfaMethod; con
       : method === "email"
         ? contact.emailMasked ? `Email code to ${contact.emailMasked}` : `Email code (${NO_EMAIL_REGISTERED})`
         : METHOD_LABELS[method];
-  const unavailableMethodNotice =
-    method === "sms" ? "This demo does not send text message codes."
-      : method === "email" ? "This demo does not send email codes."
-        : method === "app" ? "This demo does not send app approval requests."
-          : null;
+  const verificationInstructions =
+    method === "sms" ? "Enter the six-digit code from your phone to verify."
+      : method === "email" ? "Enter the six-digit code from your email to verify."
+        : method === "app" ? "Enter the current six-digit code from your account for approval."
+          : "Enter the current six-digit code from Authenticator for your account.";
 
   return (
     <div data-testid="mfa-authenticator-step" className="space-y-4">
       <div data-testid="mfa-verification-notice">
         <Alert tone="info" title="Verification">
           You selected: <span data-testid="mfa-selected-destination">{selectedMethod}</span>.{" "}
-          {unavailableMethodNotice && <>{unavailableMethodNotice} </>}
-          Enter the current six-digit code from Authenticator for your account.
+          {verificationInstructions}
         </Alert>
       </div>
 

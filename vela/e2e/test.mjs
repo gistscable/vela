@@ -103,9 +103,9 @@ async function finishAuthenticator(page, email) {
 
     // Every selection shows its own masked method, but only the authenticator code is verified.
     const selectionPaths = [
-      { id: "mfa-method-sms", selected: digits.length >= 8 ? `Text message to phone ending in ${digits.slice(-4)}` : "Text message to phone (No phone number registered)", unavailable: "This demo does not send text message codes." },
-      { id: "mfa-method-email", selected: `Email code to ${expectedMaskedEmail}`, unavailable: "This demo does not send email codes." },
-      { id: "mfa-method-app-approval", selected: "Approve in First Meridian app", unavailable: "This demo does not send app approval requests." },
+      { id: "mfa-method-sms", selected: digits.length >= 8 ? `Text message to phone ending in ${digits.slice(-4)}` : "Text message to phone (No phone number registered)", instructions: "Enter the six-digit code from your phone to verify." },
+      { id: "mfa-method-email", selected: `Email code to ${expectedMaskedEmail}`, instructions: "Enter the six-digit code from your email to verify." },
+      { id: "mfa-method-app-approval", selected: "Approve in First Meridian app", instructions: "Enter the current six-digit code from your account for approval." },
     ];
     let selectionPathsOk = true;
     for (const path of selectionPaths) {
@@ -114,8 +114,8 @@ async function finishAuthenticator(page, email) {
       const noticeText = await page.getByTestId("mfa-verification-notice").innerText();
       selectionPathsOk &&= await page.getByRole("heading", { name: "Verify your sign-in" }).isVisible()
         && noticeText.includes(`You selected: ${path.selected}`)
-        && noticeText.includes(path.unavailable)
-        && noticeText.includes("Enter the current six-digit code from Authenticator for your account.")
+        && noticeText.includes(path.instructions)
+        && !noticeText.includes("This demo does not send")
         && !noticeText.includes("Google Authenticator")
         && await page.getByRole("button", { name: "Back to verification methods" }).isVisible()
         && !(await page.context().cookies(BASE)).some((cookie) => cookie.name === "fmb_session_v2")
