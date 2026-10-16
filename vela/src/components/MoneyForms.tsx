@@ -77,7 +77,6 @@ export function MoneyMovement({
   initialTab = "deposit",
   initialFromId,
   stripeReady = false,
-  stripeProblem,
   checkoutNotice,
 }: {
   accounts: AccountOption[];
@@ -88,7 +87,6 @@ export function MoneyMovement({
   initialTab?: string;
   initialFromId?: string;
   stripeReady?: boolean;
-  stripeProblem?: string | null;
   checkoutNotice?: "returned" | "cancelled";
 }) {
   const [tab, setTab] = useState<TabId>((TABS.find((item) => item.id === initialTab)?.id ?? "deposit") as TabId);
@@ -122,7 +120,6 @@ export function MoneyMovement({
         <DepositForm
           accounts={activeAccounts}
           stripeReady={stripeReady}
-          stripeProblem={stripeProblem}
           checkoutNotice={checkoutNotice}
         />
       )}
@@ -144,12 +141,10 @@ export function MoneyMovement({
 function DepositForm({
   accounts,
   stripeReady,
-  stripeProblem,
   checkoutNotice,
 }: {
   accounts: AccountOption[];
   stripeReady: boolean;
-  stripeProblem?: string | null;
   checkoutNotice?: "returned" | "cancelled";
 }) {
   const [depositState, depositFormAction, depositPending] = useActionState<ActionState, FormData>(depositAction, null);
@@ -158,42 +153,36 @@ function DepositForm({
   return (
     <div className="space-y-4">
       {checkoutNotice === "returned" && (
-        <Alert tone="info" title="Checkout returned">
-          A successful Stripe payment creates a deposit request for approval. The balance remains unchanged until approval.
+        <Alert tone="info" title="Deposit submitted">
+          Your deposit is processing. Your balance will update when processing is complete.
         </Alert>
       )}
-      {checkoutNotice === "cancelled" && <Alert tone="info">Stripe checkout was cancelled. No deposit was posted.</Alert>}
+      {checkoutNotice === "cancelled" && <Alert tone="info">Checkout was cancelled. No deposit was posted.</Alert>}
 
       {stripeReady ? (
         <>
           <form action={stripeAction} className="space-y-4">
-            {stripeState?.error && <Alert tone="error" title="Stripe ACH checkout">{stripeState.error}</Alert>}
+            {stripeState?.error && <Alert tone="error" title="Online deposit">{stripeState.error}</Alert>}
             <div className="border border-blue-200 bg-blue-50 px-3.5 py-3 text-[12px] leading-relaxed text-bank-navy">
-              <p className="flex items-center gap-2 font-bold"><LockKeyhole className="h-4 w-4" /> Stripe ACH is connected</p>
-              <p className="mt-1">Bank details are collected by Stripe Checkout.</p>
+              <p className="flex items-center gap-2 font-bold"><LockKeyhole className="h-4 w-4" /> Secure online deposit</p>
+              <p className="mt-1">Bank details are collected securely.</p>
             </div>
             <AccountSelect name="accountId" label="Deposit into" accounts={accounts} />
             <Input name="amount" label="Deposit amount" inputMode="decimal" placeholder="$0.00" min="1" max="5000" required />
             <Button type="submit" loading={stripePending} variant="navy" size="lg" className="w-full">
-              Continue to Stripe ACH checkout
+              Continue to secure checkout
             </Button>
-            <p className="text-[10.5px] text-gray-500">A successful payment creates a pending entry; it must be approved before the balance changes.</p>
+            <p className="text-[10.5px] text-gray-500">Your balance updates when the deposit has been processed.</p>
           </form>
           <details className="border-t border-gray-200 pt-3">
-            <summary className="cursor-pointer text-[11.5px] font-semibold text-bank-link underline underline-offset-2">Use the internal deposit form</summary>
+            <summary className="cursor-pointer text-[11.5px] font-semibold text-bank-link underline underline-offset-2">Use another deposit method</summary>
             <div className="pt-3">
               <DepositRequestForm accounts={accounts} state={depositState} formAction={depositFormAction} pending={depositPending} />
             </div>
           </details>
         </>
       ) : (
-        <>
-          <Alert tone="info" title="External deposits are unavailable">
-            {stripeProblem || "Stripe checkout is not configured."} The form below submits a request for approval. For account linking, visit{" "}
-            <Link className="font-semibold underline underline-offset-2" href="/linked-accounts">Linked accounts</Link>.
-          </Alert>
-          <DepositRequestForm accounts={accounts} state={depositState} formAction={depositFormAction} pending={depositPending} />
-        </>
+        <DepositRequestForm accounts={accounts} state={depositState} formAction={depositFormAction} pending={depositPending} />
       )}
     </div>
   );
@@ -221,10 +210,10 @@ function DepositRequestForm({
         <option>Payroll / Direct deposit</option>
       </Select>
       <div className="border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-[11px] leading-relaxed text-gray-600">
-        The request stays unposted until it is approved.
+        Your balance updates when the deposit has been processed.
       </div>
       <Button type="submit" loading={pending} variant="navy" size="lg" className="w-full">
-        Submit deposit for approval
+        Submit deposit request
       </Button>
     </form>
   );
@@ -303,9 +292,9 @@ function WithdrawForm({
         externalDestinations.length === 0 ? (
           <Alert tone="info" title={unverifiedDestinationCount > 0 ? "Verification is still in progress" : savedDestinationCount > 0 ? "No verified destination is available" : "Add an external account first"}>
             {unverifiedDestinationCount > 0
-              ? "A saved destination must pass review and verification before it can be selected. Check its status on "
+              ? "A saved destination must be verified before it can be selected. Check its status on "
               : savedDestinationCount > 0
-                ? "Rejected destinations cannot be used. Add another account or review your saved accounts on "
+                ? "This destination is unavailable. Add another account or check the status of your saved accounts on "
                 : "Save an external destination before submitting an ACH or wire request. Visit "}
             <Link href="/linked-accounts" className="font-semibold underline underline-offset-2">Linked Accounts</Link>.
           </Alert>
@@ -326,7 +315,7 @@ function WithdrawForm({
             </Select>
             <Input name="amount" label="Amount" inputMode="decimal" placeholder="$0.00" required />
             <div className="border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-[11px] leading-relaxed text-gray-600">
-              The request stays unposted until approval.
+              Your balance updates when the transfer has been processed.
             </div>
             <Button type="submit" variant="navy" size="lg" className="w-full">
               Review external transfer
@@ -340,7 +329,7 @@ function WithdrawForm({
             <ReviewLine label="To" value={`${destination ? safeExternalNickname(destination.nickname, destination.accountType) : "External account"} · ${destination ? safeInstitutionName(destination.institutionName) : ""} · •••• ${destination ? lastFourDigits(destination.accountMask) : "----"}`} />
             <ReviewLine label="Method" value={review.paymentMethod === "WIRE" ? "Wire transfer" : "ACH transfer"} />
             <ReviewLine label="Amount" value={formatCents(parseCents(review.amount) ?? 0)} strong />
-            <ReviewLine label="Status" value="Awaiting approval" />
+            <ReviewLine label="Status" value="Processing" />
           </ReviewSummary>
           <input type="hidden" name="accountId" value={review.accountId} />
           <input type="hidden" name="externalAccountId" value={review.externalAccountId} />
@@ -351,10 +340,10 @@ function WithdrawForm({
               <ArrowLeft className="h-4 w-4" /> Edit
             </Button>
             <Button type="submit" loading={sharedPreview ? previewPending : pending} variant="navy">
-              Submit for approval
+              Submit transfer
             </Button>
           </div>
-          <p className="text-center text-[10.5px] text-gray-500">The balance changes only after approval.</p>
+          <p className="text-center text-[10.5px] text-gray-500">Your balance updates when the transfer is complete.</p>
         </>
       )}
     </form>
@@ -424,7 +413,7 @@ function TransferForm({
             <ReviewLine label="To" value={to?.name ?? "Account"} />
             <ReviewLine label="Amount" value={formatCents(parseCents(review.amount) ?? 0)} strong />
             <ReviewLine label="Memo" value={review.memo} />
-            <ReviewLine label="Status" value="Awaiting approval; balances stay unchanged" />
+            <ReviewLine label="Status" value="Processing; balances update when complete" />
           </ReviewSummary>
           <input type="hidden" name="fromId" value={review.fromId} />
           <input type="hidden" name="toId" value={review.toId} />
@@ -432,9 +421,9 @@ function TransferForm({
           <input type="hidden" name="memo" value={review.memo} />
           <div className="grid grid-cols-2 gap-3">
             <Button type="button" variant="outline" onClick={() => setReview(null)}><ArrowLeft className="h-4 w-4" /> Edit</Button>
-            <Button type="submit" loading={pending} variant="navy">Submit for approval</Button>
+            <Button type="submit" loading={pending} variant="navy">Submit transfer</Button>
           </div>
-          <p className="text-center text-[10.5px] text-gray-500">The balances change only after an admin approves the request.</p>
+          <p className="text-center text-[10.5px] text-gray-500">Balances update when the transfer is complete.</p>
         </>
       )}
     </form>
@@ -502,7 +491,7 @@ function SendForm({
             <ReviewLine label="Recipient" value={review.recipientEmail} />
             <ReviewLine label="Amount" value={formatCents(parseCents(review.amount) ?? 0)} strong />
             <ReviewLine label="Memo" value={review.memo} />
-            <ReviewLine label="Status" value="Awaiting approval" />
+            <ReviewLine label="Status" value="Processing" />
           </ReviewSummary>
           <input type="hidden" name="fromId" value={review.fromId} />
           <input type="hidden" name="recipientEmail" value={review.recipientEmail} />
@@ -510,9 +499,9 @@ function SendForm({
           <input type="hidden" name="memo" value={review.memo} />
           <div className="grid grid-cols-2 gap-3">
             <Button type="button" variant="outline" onClick={() => setReview(null)}><ArrowLeft className="h-4 w-4" /> Edit</Button>
-              <Button type="submit" loading={pending} variant="navy"><Send className="h-4 w-4" /> Submit for approval</Button>
+              <Button type="submit" loading={pending} variant="navy"><Send className="h-4 w-4" /> Send Quick Pay</Button>
           </div>
-          <p className="text-center text-[10.5px] text-gray-500">The request stays unposted until approval.</p>
+          <p className="text-center text-[10.5px] text-gray-500">Your payment will appear in account activity as it is processed.</p>
         </>
       )}
     </form>

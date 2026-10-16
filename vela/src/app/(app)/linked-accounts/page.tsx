@@ -38,7 +38,7 @@ export default async function LinkedAccountsPage() {
     <div>
       <PageHeader
         title="Linked Accounts"
-        subtitle="Add an external destination for review. It can be used for a transfer request only after admin review and verification."
+        subtitle="Add and verify an external account to use as a transfer destination."
         actions={<Link href="/transfer?tab=deposit" className="inline-flex h-9 items-center border border-gray-400 bg-white px-3 text-[11.5px] font-bold text-bank-navy hover:bg-gray-50">Back to transfers</Link>}
       />
       <LinkedAccountsClient

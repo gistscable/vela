@@ -6,13 +6,13 @@ export const runtime = "nodejs";
 
 export async function POST() {
   if (await isSharedPreviewDemoMode()) {
-    return NextResponse.json({ error: "External bank linking is disabled for the shared sample account." }, { status: 503 });
+    return NextResponse.json({ error: "Bank linking is temporarily unavailable. Please try another method." }, { status: 503 });
   }
   const userId = await getSessionUserId();
   if (!userId) return NextResponse.json({ error: "Sign in to continue." }, { status: 401 });
 
   const plaid = await getPlaidClient();
-  if (!plaid) return NextResponse.json({ error: "Plaid is not configured for this environment." }, { status: 503 });
+  if (!plaid) return NextResponse.json({ error: "Bank linking is temporarily unavailable. Please try another method." }, { status: 503 });
 
   try {
     const { CountryCode, Products } = await import("plaid");

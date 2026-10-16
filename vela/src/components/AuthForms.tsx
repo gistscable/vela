@@ -163,7 +163,7 @@ export function SignupForm() {
             name="openingDeposit"
             inputMode="decimal"
             placeholder="$0.00"
-            hint="Submitted for review before it is posted to your account."
+            hint="You can also add funds after your account is active."
           />
         </section>
 

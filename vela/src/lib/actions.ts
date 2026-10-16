@@ -9,7 +9,6 @@ import { decryptSensitive, encryptSensitive } from "@/lib/sensitive";
 import { generateTotpSecret, verifyTotp } from "@/lib/totp";
 import { parseCents } from "@/lib/money";
 import { lastFourDigits } from "@/lib/external-account-display";
-import { ensureUserHistory } from "@/lib/history";
 import { claimUsername, findUserByLoginIdentifier, isUniqueViolation, isUsernameTaken, USERNAME_UNAVAILABLE_MESSAGE } from "@/lib/identity";
 import { validateUsername } from "@/lib/username";
 
@@ -38,7 +37,7 @@ export async function loginAction(_prev: ActionState, fd: FormData): Promise<Act
   if (!user || !passwordOk) {
     return { error: "The User ID or passcode you entered is incorrect." };
   }
-  if (user.enrollmentStatus === "PENDING_APPROVAL") return { error: "Your enrollment is still awaiting approval. You'll be able to sign in once it's approved." };
+  if (user.enrollmentStatus === "PENDING_APPROVAL") return { error: "Your enrollment is being processed. Please try signing in again later." };
   if (user.enrollmentStatus !== "APPROVED") return { error: "This enrollment is not active. Please contact support." };
   if (user.mfaLockedUntil && user.mfaLockedUntil > new Date()) {
     return { error: "Too many incorrect authenticator codes. Try again in a few minutes." };
@@ -92,8 +91,8 @@ export async function signupAction(_prev: ActionState, fd: FormData): Promise<Ac
     if (await db.user.findUnique({ where: { email } })) return { error: "An enrollment with this email already exists. Try signing in instead." };
     return { error: USERNAME_UNAVAILABLE_MESSAGE };
   }
-  // Standard accounts; the 2023-2026 history is provisioned on approval
-  // (see reviewEnrollmentAction -> ensureUserHistory).
+  // Standard zero-balance accounts; the admin may optionally add generated
+  // 2023-2026 history when approving the enrollment.
   const suffix = Math.floor(100000 + Math.random() * 899999);
   await db.account.create({ data: { userId: user.id, type: "CHECKING", name: "Everyday Checking", accountNumber: `1847${suffix}14`, routingNumber: "021000021", balance: 0 } });
   await db.account.create({ data: { userId: user.id, type: "SAVINGS", name: "High-Yield Savings", accountNumber: `1847${suffix}22`, routingNumber: "021000021", balance: 0, apy: 4.25 } });
@@ -179,7 +178,7 @@ export async function depositAction(_prev: ActionState, fd: FormData): Promise<A
 
 export async function createStripeCheckoutAction(_prev: ActionState, _fd: FormData): Promise<ActionState> {
   await requireUser();
-  return { error: "Stripe checkout is not configured. Use the deposit form instead." };
+  return { error: "This payment option is temporarily unavailable. Please use another deposit method." };
 }
 
 export async function withdrawAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
@@ -409,13 +408,13 @@ export async function addExternalAccountAction(_prev: ActionState, fd: FormData)
     },
   });
   refresh();
-  return { success: true, message: "External account submitted for approval." };
+  return { success: true, message: "External destination added. Verification will appear here when available." };
 }
 
 export async function verifyExternalAccountAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const user = await requireUser();
   const account = await db.externalAccount.findFirst({ where: { id: str(fd, "externalAccountId"), userId: user.id, status: "CHALLENGE_ACTIVE" } });
-  if (!account) return { error: "That account is not awaiting verification." };
+  if (!account) return { error: "This destination is not available for verification." };
   if (account.microdepositExpiresAt && account.microdepositExpiresAt < new Date()) return { error: "The verification amounts have expired." };
   const a1 = parseCents(str(fd, "microdepositAmount1"));
   const a2 = parseCents(str(fd, "microdepositAmount2"));

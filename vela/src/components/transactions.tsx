@@ -1,20 +1,19 @@
 import Link from "next/link";
 import { Clock3, FileText } from "lucide-react";
 import { formatCents, formatDateTime } from "@/lib/money";
-import { paymentMethodLabel, safeCounterparty, safeTransactionDescription } from "@/lib/external-account-display";
+import { isAdminCreditReference, paymentMethodLabel, safeCounterparty, safeTransactionDescription } from "@/lib/external-account-display";
 import type { Transaction } from "@/lib/db";
 
 /** Plain, ledger-style row: merchant/date on the left, signed amount on the right. */
 export function TransactionRow({ tx, dense = false }: { tx: Transaction; dense?: boolean }) {
   const credit = tx.amount > 0;
   const statusLabel: string | null =
-    tx.status === "PENDING_APPROVAL" ? "Awaiting approval" :
-      tx.status === "PROCESSING_APPROVAL" ? "Being reviewed" :
-        tx.status === "REJECTED" ? "Rejected · not posted" :
-          tx.status === "PENDING" ? "Pending" :
-            tx.status === "FAILED" ? "Failed" : null;
+    tx.status === "PENDING_APPROVAL" || tx.status === "PROCESSING_APPROVAL" ? "Processing" :
+      tx.status === "REJECTED" ? "Not completed" :
+        tx.status === "PENDING" ? "Pending" :
+          tx.status === "FAILED" ? "Failed" : null;
   const description = safeTransactionDescription(tx.description);
-  const counterparty = safeCounterparty(tx.counterparty);
+  const counterparty = isAdminCreditReference(tx.reference) ? null : safeCounterparty(tx.counterparty);
   const method = paymentMethodLabel(tx.paymentMethod);
 
   return (
@@ -93,11 +92,11 @@ export function PageHeader({
 
 export function Toast({ kind }: { kind?: string }) {
   const messages: Record<string, string> = {
-    deposit: "Your deposit request is awaiting approval. The account balance has not changed.",
-    "mobile-deposit": "Your mobile deposit request is awaiting approval. No check image was retained and no funds have been posted.",
-    withdraw: "Your external transfer request is awaiting approval.",
-    transfer: "Your internal transfer request is awaiting approval. Neither account balance has changed.",
-    send: "Your Quick Pay request is awaiting approval.",
+    deposit: "Your deposit request is processing. Your balance will update when it is complete.",
+    "mobile-deposit": "Your mobile deposit request is processing. No check image was retained.",
+    withdraw: "Your external transfer request is processing.",
+    transfer: "Your internal transfer request is processing. Balances will update when it is complete.",
+    send: "Your Quick Pay request is processing.",
   };
   if (!kind || !messages[kind]) return null;
   return (

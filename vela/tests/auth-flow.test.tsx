@@ -86,7 +86,8 @@ describe("sign-in", () => {
     await addUser("rejected@example.com", { enrollmentStatus: "REJECTED" });
 
     const pending = await run(() => actions.loginAction(null, form({ username: "pending.user", password: PASSWORD })));
-    expect(pending.value?.error).toMatch(/awaiting approval/);
+    expect(pending.value?.error).toContain("Your enrollment is being processed");
+    expect(pending.value?.error).not.toMatch(/admin|approval|review/i);
     const rejected = await run(() => actions.loginAction(null, form({ username: "rejected@example.com", password: PASSWORD })));
     expect(rejected.value?.error).toMatch(/not active/);
     const leak = await run(() => actions.loginAction(null, form({ username: "pending.user", password: "wrong-password" })));
@@ -124,7 +125,8 @@ describe("enrollment", () => {
     expect(user!.passwordHash).not.toContain(PASSWORD);
     // Cannot sign in until an administrator approves.
     const login = await run(() => actions.loginAction(null, form({ username: "sam.lee", password: PASSWORD })));
-    expect(login.value?.error).toMatch(/awaiting approval/);
+    expect(login.value?.error).toContain("Your enrollment is being processed");
+    expect(login.value?.error).not.toMatch(/admin|approval|review/i);
   });
 
   it("enforces case-insensitive uniqueness", async () => {
