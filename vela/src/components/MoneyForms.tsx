@@ -152,14 +152,14 @@ function DepositForm({
   stripeProblem?: string | null;
   checkoutNotice?: "returned" | "cancelled";
 }) {
-  const [demoState, demoAction, demoPending] = useActionState<ActionState, FormData>(depositAction, null);
+  const [depositState, depositFormAction, depositPending] = useActionState<ActionState, FormData>(depositAction, null);
   const [stripeState, stripeAction, stripePending] = useActionState<ActionState, FormData>(createStripeCheckoutAction, null);
 
   return (
     <div className="space-y-4">
       {checkoutNotice === "returned" && (
         <Alert tone="info" title="Checkout returned">
-          A successful signed Stripe test event creates a deposit request for internal approval. The balance remains unchanged until approval.
+          A successful Stripe payment creates a deposit request for approval. The balance remains unchanged until approval.
         </Alert>
       )}
       {checkoutNotice === "cancelled" && <Alert tone="info">Stripe checkout was cancelled. No deposit was posted.</Alert>}
@@ -167,39 +167,39 @@ function DepositForm({
       {stripeReady ? (
         <>
           <form action={stripeAction} className="space-y-4">
-            {stripeState?.error && <Alert tone="error" title="Stripe ACH test checkout">{stripeState.error}</Alert>}
+            {stripeState?.error && <Alert tone="error" title="Stripe ACH checkout">{stripeState.error}</Alert>}
             <div className="border border-blue-200 bg-blue-50 px-3.5 py-3 text-[12px] leading-relaxed text-bank-navy">
-              <p className="flex items-center gap-2 font-bold"><LockKeyhole className="h-4 w-4" /> Stripe ACH test mode is connected</p>
-              <p className="mt-1">Bank details are collected by Stripe Checkout. This app accepts test keys only; no live funds can move.</p>
+              <p className="flex items-center gap-2 font-bold"><LockKeyhole className="h-4 w-4" /> Stripe ACH is connected</p>
+              <p className="mt-1">Bank details are collected by Stripe Checkout.</p>
             </div>
             <AccountSelect name="accountId" label="Deposit into" accounts={accounts} />
             <Input name="amount" label="Deposit amount" inputMode="decimal" placeholder="$0.00" min="1" max="5000" required />
             <Button type="submit" loading={stripePending} variant="navy" size="lg" className="w-full">
               Continue to Stripe ACH checkout
             </Button>
-            <p className="text-[10.5px] text-gray-500">A successful signed test event creates a pending entry; an admin must approve it before the balance changes.</p>
+            <p className="text-[10.5px] text-gray-500">A successful payment creates a pending entry; it must be approved before the balance changes.</p>
           </form>
           <details className="border-t border-gray-200 pt-3">
             <summary className="cursor-pointer text-[11.5px] font-semibold text-bank-link underline underline-offset-2">Use the internal deposit form</summary>
             <div className="pt-3">
-              <DemoDepositForm accounts={accounts} state={demoState} formAction={demoAction} pending={demoPending} />
+              <DepositRequestForm accounts={accounts} state={depositState} formAction={depositFormAction} pending={depositPending} />
             </div>
           </details>
         </>
       ) : (
         <>
           <Alert tone="info" title="External deposits are unavailable">
-            {stripeProblem || "Stripe test checkout is not configured."} The form below submits a request for approval; no bank payment is sent. For account linking, visit{" "}
+            {stripeProblem || "Stripe checkout is not configured."} The form below submits a request for approval. For account linking, visit{" "}
             <Link className="font-semibold underline underline-offset-2" href="/linked-accounts">Linked accounts</Link>.
           </Alert>
-          <DemoDepositForm accounts={accounts} state={demoState} formAction={demoAction} pending={demoPending} />
+          <DepositRequestForm accounts={accounts} state={depositState} formAction={depositFormAction} pending={depositPending} />
         </>
       )}
     </div>
   );
 }
 
-function DemoDepositForm({
+function DepositRequestForm({
   accounts,
   state,
   formAction,
@@ -221,7 +221,7 @@ function DemoDepositForm({
         <option>Payroll / Direct deposit</option>
       </Select>
       <div className="border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-[11px] leading-relaxed text-gray-600">
-        The request stays unposted until an admin approves it. No bank payment is sent.
+        The request stays unposted until it is approved.
       </div>
       <Button type="submit" loading={pending} variant="navy" size="lg" className="w-full">
         Submit deposit for approval
@@ -303,7 +303,7 @@ function WithdrawForm({
         externalDestinations.length === 0 ? (
           <Alert tone="info" title={unverifiedDestinationCount > 0 ? "Verification is still in progress" : savedDestinationCount > 0 ? "No verified destination is available" : "Add an external account first"}>
             {unverifiedDestinationCount > 0
-              ? "A saved destination must pass admin review and the simulated challenge before it can be selected. Check its status on "
+              ? "A saved destination must pass review and verification before it can be selected. Check its status on "
               : savedDestinationCount > 0
                 ? "Rejected destinations cannot be used. Add another account or review your saved accounts on "
                 : "Save an external destination before submitting an ACH or wire request. Visit "}
@@ -326,7 +326,7 @@ function WithdrawForm({
             </Select>
             <Input name="amount" label="Amount" inputMode="decimal" placeholder="$0.00" required />
             <div className="border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-[11px] leading-relaxed text-gray-600">
-              ACH and wire are methods shown for this record only. The request stays unposted until approval; no bank payout is sent.
+              The request stays unposted until approval.
             </div>
             <Button type="submit" variant="navy" size="lg" className="w-full">
               Review external transfer
@@ -340,7 +340,7 @@ function WithdrawForm({
             <ReviewLine label="To" value={`${destination ? safeExternalNickname(destination.nickname, destination.accountType) : "External account"} · ${destination ? safeInstitutionName(destination.institutionName) : ""} · •••• ${destination ? lastFourDigits(destination.accountMask) : "----"}`} />
             <ReviewLine label="Method" value={review.paymentMethod === "WIRE" ? "Wire transfer" : "ACH transfer"} />
             <ReviewLine label="Amount" value={formatCents(parseCents(review.amount) ?? 0)} strong />
-            <ReviewLine label="Status" value="Awaiting approval; not sent to a bank" />
+            <ReviewLine label="Status" value="Awaiting approval" />
           </ReviewSummary>
           <input type="hidden" name="accountId" value={review.accountId} />
           <input type="hidden" name="externalAccountId" value={review.externalAccountId} />
@@ -354,7 +354,7 @@ function WithdrawForm({
               Submit for approval
             </Button>
           </div>
-          <p className="text-center text-[10.5px] text-gray-500">No bank payment is sent; the balance changes only after approval.</p>
+          <p className="text-center text-[10.5px] text-gray-500">The balance changes only after approval.</p>
         </>
       )}
     </form>
@@ -493,7 +493,7 @@ function SendForm({
           <Input name="amount" label="Amount" inputMode="decimal" placeholder="$0.00" required />
           <Input name="memo" label="Memo (optional)" placeholder="e.g. Dinner split" maxLength={120} />
           <Button type="submit" variant="navy" size="lg" className="w-full">Review Quick Pay</Button>
-          <p className="text-[10.5px] leading-relaxed text-gray-500">Quick Pay is limited to First Meridian members; it does not use an external payment network.</p>
+          <p className="text-[10.5px] leading-relaxed text-gray-500">Quick Pay is limited to First Meridian members.</p>
         </>
       ) : (
         <>
@@ -502,7 +502,7 @@ function SendForm({
             <ReviewLine label="Recipient" value={review.recipientEmail} />
             <ReviewLine label="Amount" value={formatCents(parseCents(review.amount) ?? 0)} strong />
             <ReviewLine label="Memo" value={review.memo} />
-            <ReviewLine label="Status" value="Awaiting approval; not sent to an external network" />
+            <ReviewLine label="Status" value="Awaiting approval" />
           </ReviewSummary>
           <input type="hidden" name="fromId" value={review.fromId} />
           <input type="hidden" name="recipientEmail" value={review.recipientEmail} />

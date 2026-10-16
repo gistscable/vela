@@ -9,10 +9,10 @@ export const metadata: Metadata = { title: "Help & Support — First Meridian" }
 
 const FAQS = [
   { question: "Why did I land on the sign-in page?", answer: "A protected page needs a valid session. Sign in again if your session expired. Ordinary account, activity, transfer and service links should keep you signed in; the mobile Sign out control is inside the Menu." },
-  { question: "Can I send money to another member?", answer: "Use Send money / Quick Pay to submit a request to another First Meridian member. It stays unposted until an admin approves it and does not contact an external payment network." },
-  { question: "How can I receive money?", answer: "Use Receive money to request funds from another member. If they choose to pay, the internal transfer still needs admin approval before either balance changes. External incoming transfers are not enabled." },
-  { question: "Does mobile check deposit process my check?", answer: "No. Check images stay on your device and are not uploaded. The request must be approved before a balance changes; no bank processes the check." },
-  { question: "Are ACH deposits and bill payments real?", answer: "No bank payment is sent. A configured Stripe checkout accepts test keys only and creates a request that still needs admin approval. Bill Pay records a request but does not pay an outside biller." },
+  { question: "Can I send money to another member?", answer: "Use Send money / Quick Pay to submit a request to another First Meridian member. It stays unposted until it is approved." },
+  { question: "How can I receive money?", answer: "Use Receive money to request funds from another member. If they choose to pay, the transfer still needs approval before either balance changes." },
+  { question: "How does mobile check deposit work?", answer: "Check images stay on your device. The request must be approved before a balance changes." },
+  { question: "How do ACH deposits and bill payments work?", answer: "Deposits and bill payments are submitted as requests and still need approval before they are posted." },
   { question: "Where are statements and card controls?", answer: "Open Services from the bottom navigation (or Menu from the top), then choose Statements & documents or Cards & products. They are also available from the desktop navigation." },
 ];
 
@@ -44,7 +44,7 @@ export default async function HelpPage() {
           </Panel>
           <div className="border border-gray-300 bg-gray-50 p-4 text-[11px] leading-relaxed text-gray-600">
             <h2 className="flex items-center gap-2 text-[12px] font-bold text-bank-navy"><MessageCircleQuestion className="h-4 w-4" /> About support</h2>
-            <p className="mt-2">There is no live contact center, account servicing team, fraud monitoring or emergency support. Do not enter real banking credentials or rely on this product for payments.</p>
+            <p className="mt-2">Contact us through Help & Support for help with your account, transfers, deposits and other services.</p>
             <Link href="/services" className="mt-3 inline-flex items-center gap-1 font-semibold text-bank-link underline underline-offset-2"><BookOpen className="h-3.5 w-3.5" /> View all services</Link>
           </div>
         </aside>

@@ -53,12 +53,12 @@ export default async function ReceivePage({ searchParams }: { searchParams: Prom
     <div className="space-y-5">
       <PageHeader
         title="Receive money"
-        subtitle="Request funds from another First Meridian member. External incoming transfers are not enabled."
+        subtitle="Request funds from another First Meridian member."
         actions={<Link href="/transfer?tab=send" className="text-[11.5px] font-semibold text-bank-link underline underline-offset-2">Send money instead</Link>}
       />
       {notice && <Alert tone={notice.tone} title={notice.title}>{notice.body}</Alert>}
       <Alert tone="info" title="First Meridian member transfers">
-        A payment request stays unposted until an admin approves it. Both account balances remain unchanged beforehand; no outside bank or payment network is contacted.
+        A payment request stays unposted until it is approved. Both account balances remain unchanged beforehand.
       </Alert>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">

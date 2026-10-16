@@ -170,7 +170,7 @@ export default async function LandingPage() {
               Offer valid for new personal checking customers through 12/31/2026. Qualifying direct
               deposits totaling $2,000 or more must be received within 90 days of account opening.
               Bonus will be deposited within 60 days of meeting requirements. Limit one bonus per
-              customer. See offer details for full terms. <span className="font-semibold">Illustrative offer only; First Meridian is fictional and provides no real accounts or payments.</span>
+              customer. See offer details for full terms.
             </p>
           </div>
 
@@ -379,15 +379,9 @@ export default async function LandingPage() {
 
           <div className="mt-10 border-t border-gray-300 pt-6">
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px] font-bold text-bank-navy">
-              <span>© 2026 First Meridian concept.</span>
+              <span>© 2026 First Meridian Bank.</span>
             </div>
-            <p className="mt-4 max-w-4xl text-[10px] leading-relaxed text-gray-500">
-              <strong>Important:</strong> First Meridian is fictional and is not a licensed bank or payment
-              service. No real accounts are opened, no funds are held or moved, and no bank payment is sent.
-              It is not FDIC insured. Rates, offers and financial products shown here are illustrative, not
-              a real offer or solicitation.
-            </p>
-            <p className="mt-3 text-[10px] text-gray-500">
+            <p className="mt-4 text-[10px] text-gray-500">
               Privacy Policy · Terms of Use · Accessibility · Online Banking Agreement · Your Privacy Choices
             </p>
           </div>

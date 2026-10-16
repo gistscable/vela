@@ -99,20 +99,20 @@ async function finishAuthenticator(page, email) {
     const leaks = [contactUser?.email, contactUser?.phone, digits.length >= 8 ? digits : null].filter(Boolean);
     check(`MFA screen does not expose ${email}'s full contact details`, leaks.every((value) => !pageHtml.includes(value)));
     const screenText = await page.locator("main, body").first().innerText();
-    check("MFA screen keeps the authenticator-continuation notice without implying a code was sent", screenText.includes("All options currently continue to authenticator verification") && !/code (was|has been) sent/i.test(screenText));
+    check("MFA screen shows authenticator reset guidance without implying a code was sent", screenText.includes("If you lose access to your authenticator, contact an administrator for a reset") && !screenText.includes("All options currently continue") && !/code (was|has been) sent/i.test(screenText));
 
-    // Every selection opens the working authenticator form, says nothing was sent, and can go back.
+    // Every selection opens the working authenticator form and can go back.
     const selectionPaths = [
-      { id: "mfa-method-sms", sent: "No text message was sent." },
-      { id: "mfa-method-email", sent: "No email was sent." },
-      { id: "mfa-method-app-approval", sent: "No request was sent to the First Meridian app." },
+      { id: "mfa-method-sms" },
+      { id: "mfa-method-email" },
+      { id: "mfa-method-app-approval" },
     ];
     let selectionPathsOk = true;
     for (const path of selectionPaths) {
       await page.getByTestId(path.id).click();
       await page.getByLabel("Six-digit authenticator code").waitFor();
-      const noticeText = await page.getByTestId("mfa-temporary-notice").innerText();
-      selectionPathsOk &&= noticeText.includes("temporarily") && noticeText.includes(path.sent)
+      const noticeText = await page.getByTestId("mfa-verification-notice").innerText();
+      selectionPathsOk &&= noticeText.includes("Open Google Authenticator and enter the current six-digit code") && !/temporarily|was sent/i.test(noticeText)
         && await page.getByRole("button", { name: "Back to verification methods" }).isVisible()
         && !(await page.context().cookies(BASE)).some((cookie) => cookie.name === "fmb_session_v2")
         && new URL(page.url()).pathname === "/mfa/verify";
@@ -120,7 +120,7 @@ async function finishAuthenticator(page, email) {
       await page.getByTestId("mfa-method-sms").waitFor();
       selectionPathsOk &&= await page.locator('input[name="totpCode"]').count() === 0;
     }
-    check("Each MFA selection opens the authenticator form with an honest notice, Back works, and selection alone never signs in", selectionPathsOk);
+    check("Each MFA selection opens the authenticator form, Back works, and selection alone never signs in", selectionPathsOk);
     // Finish through a rotating method so each path also gets a real successful verification.
     const finishingMethod = ["mfa-method-sms", "mfa-method-email", "mfa-method-app-approval", "mfa-method-authenticator"][mfaFinishCount++ % 4];
     await page.getByTestId(finishingMethod).click();
@@ -163,8 +163,8 @@ async function main() {
   await page.goto(`${BASE}/login`, { waitUntil: "load" });
   await page.waitForSelector("text=Sign in to Online Banking");
   await page.getByText("Forgot your passcode?", { exact: true }).click();
-  await page.getByText("Passcode reset is not available in this version.", { exact: true }).waitFor();
-  check("Forgot-passcode control explains reset is unavailable", true);
+  await page.getByText("Contact customer service if you need help resetting your passcode.", { exact: true }).waitFor();
+  check("Forgot-passcode control explains how to get reset help", true);
   const loginPassword = page.locator('input[name="password"]');
   check("Login passcode is hidden by default", await loginPassword.getAttribute("type") === "password");
   await loginPassword.fill("wrongpass");
@@ -197,7 +197,7 @@ async function main() {
   check("Customer navigation does not expose admin approvals", await page.getByRole("link", { name: "Admin approvals" }).count() === 0);
   await page.goto(`${BASE}/admin`, { waitUntil: "load" });
   await page.waitForURL("**/dashboard?notice=admin-only");
-  check("Shared sample customer cannot open the admin approval page", await page.locator("main").innerText().then((text) => !text.includes("Transactions awaiting approval")));
+  check("Shared customer cannot open the admin approval page", await page.locator("main").innerText().then((text) => !text.includes("Transactions awaiting approval")));
   await page.getByRole("link", { name: "Help", exact: true }).click();
   await page.waitForURL("**/help");
   await page.getByRole("heading", { name: "Common questions" }).waitFor({ state: "visible" });
@@ -220,7 +220,7 @@ async function main() {
   check("Mobile account home has no horizontal overflow", mobileWidth);
   check("Mobile home has monthly insights after activity", await page.getByRole("heading", { name: "This month" }).isVisible());
   check("Mobile home includes spending and quick links", await page.getByRole("heading", { name: "Spending by category" }).isVisible() && await page.getByRole("heading", { name: "Quick links" }).isVisible());
-  check("Mobile footer disclosure is present", (await page.locator("footer").filter({ hasText: "Fictional product, not a bank" }).innerText()).includes("No bank payment is sent"));
+  check("Mobile footer shows the First Meridian Bank footer", (await page.locator("footer").filter({ hasText: "First Meridian Bank" }).last().innerText()).includes("© 2026 First Meridian Bank"));
   check("Mobile header has no easy-to-mistap sign-out", await page.getByRole("button", { name: "Sign out", exact: true }).count() === 0);
   await shot(page, "02b-mobile-dashboard");
   await page.getByRole("button", { name: "Services" }).click();
@@ -332,7 +332,7 @@ async function main() {
   await marcusPage.fill('input[name="password"]', "demo1234");
   await marcusPage.click('button[type="submit"]');
   const marcusMfa = await finishAuthenticator(marcusPage, "marcus@example.com");
-  check("Second sample user must enroll a separate authenticator", marcusMfa.mfaPath === "/mfa/setup" && !marcusMfa.hadFullSession);
+  check("Second user must enroll a separate authenticator", marcusMfa.mfaPath === "/mfa/setup" && !marcusMfa.hadFullSession);
   await marcusPage.goto(`${BASE}/receive`, { waitUntil: "load" });
   const requestPayBalancesBefore = {
     amara: balanceSnapshot(await accountOwner("demo@vela.app")),
@@ -414,11 +414,11 @@ async function main() {
   await adminPage.getByRole("link", { name: "Admin approvals", exact: true }).click();
   await adminPage.waitForURL("**/admin");
   const externalReview = adminPage.locator("article").filter({ hasText: "E2E checking" });
-  await externalReview.getByRole("button", { name: "Start simulated challenge" }).click();
+  await externalReview.getByRole("button", { name: "Start verification challenge" }).click();
   await adminPage.waitForURL("**/admin?notice=challenge-issued", { timeout: 20000 });
   const challenge = await db.externalAccount.findUnique({ where: { id: externalDestination.id } });
   const adminChallengeText = await adminPage.locator("article").filter({ hasText: "E2E checking" }).innerText();
-  check("Admin starts a clearly simulated challenge without sending funds", challenge?.status === "CHALLENGE_ACTIVE" && challenge.microdepositAmount1 !== null && challenge.microdepositAmount2 !== null && challenge.microdepositAmount1 !== challenge.microdepositAmount2 && adminChallengeText.includes("No money was deposited") && adminChallengeText.includes("Admin test amounts"));
+  check("Admin starts a verification challenge", challenge?.status === "CHALLENGE_ACTIVE" && challenge.microdepositAmount1 !== null && challenge.microdepositAmount2 !== null && challenge.microdepositAmount1 !== challenge.microdepositAmount2 && adminChallengeText.includes("Verification amounts"));
 
   await page.goto(`${BASE}/linked-accounts`, { waitUntil: "load" });
   const customerChallengeCard = page.locator("article").filter({ hasText: "E2E checking" });
@@ -426,21 +426,21 @@ async function main() {
   const expectedFirst = challenge?.microdepositAmount1 ?? 0;
   const expectedSecond = challenge?.microdepositAmount2 ?? 0;
   const dollars = (cents) => (cents / 100).toFixed(2);
-  check("Customer sees a simulated verification form without the hidden challenge values", customerChallengeText.includes("no money was sent") && !customerChallengeText.includes("Admin test amounts") && await customerChallengeCard.locator('input[name="microdepositAmount1"]').inputValue() === "" && await customerChallengeCard.locator('input[name="microdepositAmount2"]').inputValue() === "");
+  check("Customer sees a verification form without the hidden challenge values", customerChallengeText.includes("Enter the two amounts shared with you by the administrator") && !customerChallengeText.includes("Verification amounts:") && await customerChallengeCard.locator('input[name="microdepositAmount1"]').inputValue() === "" && await customerChallengeCard.locator('input[name="microdepositAmount2"]').inputValue() === "");
   const wrongFirst = expectedFirst === 99 ? 98 : expectedFirst + 1;
   await page.locator("article").filter({ hasText: "E2E checking" }).getByLabel("First amount").fill(dollars(wrongFirst));
   await page.locator("article").filter({ hasText: "E2E checking" }).getByLabel("Second amount").fill(dollars(expectedSecond));
   await page.locator("article").filter({ hasText: "E2E checking" }).getByRole("button", { name: "Verify" }).click();
   await page.getByText("Those amounts do not match", { exact: false }).waitFor();
   const afterWrongAmount = await db.externalAccount.findUnique({ where: { id: externalDestination.id } });
-  check("Wrong simulated amounts count as an attempt but do not verify the destination", afterWrongAmount?.status === "CHALLENGE_ACTIVE" && afterWrongAmount.microdepositAttempts === 1);
+  check("Wrong amounts count as an attempt but do not verify the destination", afterWrongAmount?.status === "CHALLENGE_ACTIVE" && afterWrongAmount.microdepositAttempts === 1);
   await page.reload({ waitUntil: "load" });
   await page.locator("article").filter({ hasText: "E2E checking" }).getByLabel("First amount").fill(dollars(expectedFirst));
   await page.locator("article").filter({ hasText: "E2E checking" }).getByLabel("Second amount").fill(dollars(expectedSecond));
   await page.locator("article").filter({ hasText: "E2E checking" }).getByRole("button", { name: "Verify" }).click();
-  await page.waitForSelector("text=Verified for prototype use", { timeout: 20000 });
+  await page.waitForSelector("text=Verified", { timeout: 20000 });
   const verifiedDestination = await db.externalAccount.findUnique({ where: { id: externalDestination.id } });
-  check("Correct simulated amounts verify the destination and erase the challenge values", verifiedDestination?.status === "VERIFIED" && verifiedDestination.microdepositAmount1 === null && verifiedDestination.microdepositAmount2 === null && verifiedDestination.microdepositAttempts === 0);
+  check("Correct amounts verify the destination and erase the challenge values", verifiedDestination?.status === "VERIFIED" && verifiedDestination.microdepositAmount1 === null && verifiedDestination.microdepositAmount2 === null && verifiedDestination.microdepositAttempts === 0);
 
   // Insufficient funds are still blocked at submission time.
   await page.goto(`${BASE}/transfer?tab=withdraw`, { waitUntil: "load" });
@@ -465,7 +465,7 @@ async function main() {
   const externalReceipt = await page.locator("main").innerText();
   const achWithdrawal = await db.transaction.findFirst({ where: { type: "WITHDRAWAL", paymentMethod: "ACH", status: "PENDING_APPROVAL", account: { user: { email: "demo@vela.app" } }, amount: -1050 }, orderBy: { createdAt: "desc" } });
   const withdrawalBalanceAfter = balanceSnapshot(await accountOwner("demo@vela.app"));
-  check("ACH withdrawal awaits approval, leaves balance unchanged and masks details", Boolean(achWithdrawal) && snapshotsMatch(withdrawalBalanceBefore, withdrawalBalanceAfter) && externalReceipt.includes("ACH") && externalReceipt.includes("Awaiting admin approval") && externalReceipt.includes("No bank payment was sent") && !externalReceipt.includes("27361891296") && !externalReceipt.includes("021000021"));
+  check("ACH withdrawal awaits approval, leaves balance unchanged and masks details", Boolean(achWithdrawal) && snapshotsMatch(withdrawalBalanceBefore, withdrawalBalanceAfter) && externalReceipt.includes("ACH") && externalReceipt.includes("Awaiting admin approval") && externalReceipt.includes("External transfer record") && !externalReceipt.includes("27361891296") && !externalReceipt.includes("021000021"));
 
   await page.goto(`${BASE}/transfer?tab=withdraw`, { waitUntil: "load" });
   await page.selectOption('select[name="externalAccountId"]', { label: "E2E checking · E2E Example Bank · •••• 1296" });
@@ -475,7 +475,7 @@ async function main() {
   await page.getByRole("button", { name: "Submit for approval" }).click();
   await page.waitForURL((url) => url.pathname.startsWith("/transactions/"), { timeout: 20000 });
   const wireReceipt = await page.locator("main").innerText();
-  check("Wire option creates a pending request with a truthful payment disclosure", wireReceipt.includes("Wire") && wireReceipt.includes("Awaiting admin approval") && wireReceipt.includes("No bank payment was sent"));
+  check("Wire option creates a pending external transfer request", wireReceipt.includes("Wire") && wireReceipt.includes("Awaiting admin approval") && wireReceipt.includes("External transfer record"));
 
   /* ---------------- ADMIN APPROVALS ---------------- */
   const balancesBeforeAdmin = {
@@ -670,7 +670,7 @@ async function main() {
   await page.selectOption('select[name="identifierType"]', "CARD");
   await page.fill('input[name="lastSix"]', "123456");
   await page.locator('input[name="alternateVerification"]').check();
-  const safeEnrollmentFields = await page.getByLabel("Email verification code").isDisabled() && await page.getByLabel("Card PIN").isDisabled() && await page.locator('input[name*="ssn" i], input[name*="tin" i]').count() === 0;
+  const safeEnrollmentFields = await page.getByLabel("Email verification code").count() === 0 && await page.getByLabel("Card PIN").count() === 0 && await page.locator('input[name*="ssn" i], input[name*="tin" i]').count() === 0;
   check("Enrollment does not collect SSN/TIN, email codes, or card PINs", safeEnrollmentFields);
   await page.fill('input[name="firstName"]', "Ada");
   await page.fill('input[name="lastName"]', "Okoye");

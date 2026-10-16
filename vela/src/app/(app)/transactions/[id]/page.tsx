@@ -112,15 +112,15 @@ export default async function TransactionReceiptPage({ params }: { params: Promi
 
       <div className="mt-4 border-l-4 border-bank-red bg-gray-50 px-4 py-3 text-[11px] leading-relaxed text-gray-600">
         {isExternalTransfer ? (
-          <><strong className="text-gray-800">No bank payment was sent.</strong> This is an internal account record; ACH and wire services are not connected.</>
+          <><strong className="text-gray-800">External transfer record.</strong> Review the status and details of this transfer above.</>
         ) : transaction.paymentMethod === "BILL_PAY" ? (
           transaction.status === "PENDING_APPROVAL" ? (
             <><strong className="text-gray-800">Approval required.</strong> The balance has not changed and the biller has not been paid.</>
           ) : (
-            <><strong className="text-gray-800">Internal record only.</strong> This does not confirm that an outside biller was paid.</>
+            <><strong className="text-gray-800">Bill payment record.</strong> Review the status and details of this payment above.</>
           )
         ) : (
-          <><strong className="text-gray-800">First Meridian account record.</strong> This fictional product does not represent a real bank account or payment.</>
+          <><strong className="text-gray-800">First Meridian account record.</strong> Review the status and details of this transaction above.</>
         )}
       </div>
 

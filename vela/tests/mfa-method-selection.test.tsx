@@ -15,9 +15,9 @@ import { buildMfaContactHints } from "@/lib/mfa-contact";
 const contact = buildMfaContactHints({ email: "alice.wonder@example.com", phone: "+1 (312) 555-0192" });
 
 const PATHS = [
-  { id: "sms", testId: "mfa-method-sms", name: /Text message to phone/, notSent: "No text message was sent." },
-  { id: "email", testId: "mfa-method-email", name: /Email code/, notSent: "No email was sent." },
-  { id: "app", testId: "mfa-method-app-approval", name: /Approve in First Meridian app/, notSent: "No request was sent to the First Meridian app." },
+  { id: "sms", testId: "mfa-method-sms", name: /Text message to phone/ },
+  { id: "email", testId: "mfa-method-email", name: /Email code/ },
+  { id: "app", testId: "mfa-method-app-approval", name: /Approve in First Meridian app/ },
 ] as const;
 
 beforeEach(() => {
@@ -39,11 +39,11 @@ describe("MFA method selection", () => {
     expect(screen.getByTestId("mfa-email-destination")).toHaveTextContent("a•••@example.com");
     // Nothing to submit until a method is chosen.
     expect(screen.queryByLabelText("Six-digit authenticator code")).toBeNull();
-    expect(screen.getByTestId("mfa-methods-notice")).toHaveTextContent("All options currently continue to authenticator verification");
+    expect(screen.getByTestId("mfa-methods-notice")).toHaveTextContent("If you lose access to your authenticator, contact an administrator for a reset");
   });
 
   for (const path of PATHS) {
-    it(`selecting "${path.id}" opens the authenticator form with an honest notice and a back button`, async () => {
+    it(`selecting "${path.id}" opens the authenticator form with a back button`, async () => {
       const user = userEvent.setup();
       render(<TotpLoginForm contact={contact} />);
       await user.click(screen.getByRole("button", { name: path.name }));
@@ -55,10 +55,10 @@ describe("MFA method selection", () => {
       expect(within(step).getByRole("button", { name: "Verify and sign in" })).toBeInTheDocument();
       expect(within(step).getByRole("button", { name: "Back to verification methods" })).toBeInTheDocument();
 
-      const notice = screen.getByTestId("mfa-temporary-notice");
-      expect(notice).toHaveTextContent("Authenticator verification is temporarily being used instead");
-      expect(notice).toHaveTextContent(path.notSent);
-      expect(notice.textContent).not.toMatch(/(?<!no )(?<!not )(text message|code|email|request) (was|has been|is being) sent/i);
+      const notice = screen.getByTestId("mfa-verification-notice");
+      expect(notice).toHaveTextContent("Authenticator verification");
+      expect(notice).toHaveTextContent("Open Google Authenticator and enter the current six-digit code");
+      expect(notice.textContent).not.toMatch(/temporarily|not available yet|was sent|will be sent/i);
 
       // The method list is gone, and choosing alone sent nothing to the server.
       expect(screen.queryByTestId("mfa-method-sms")).toBeNull();
@@ -71,7 +71,8 @@ describe("MFA method selection", () => {
     const { container, unmount } = render(<TotpLoginForm contact={contact} />);
     await user.click(screen.getByTestId("mfa-method-sms"));
     expect(screen.getByTestId("mfa-selected-destination")).toHaveTextContent("Text message to phone ending in 0192");
-    expect(screen.getByTestId("mfa-temporary-notice")).toHaveTextContent("registered, not verified");
+    expect(screen.getByTestId("mfa-verification-notice")).toHaveTextContent("You selected:");
+    expect(screen.getByTestId("mfa-verification-notice")).not.toHaveTextContent("not verified");
     await user.click(screen.getByTestId("mfa-back"));
     await user.click(screen.getByTestId("mfa-method-email"));
     expect(screen.getByTestId("mfa-selected-destination")).toHaveTextContent("a•••@example.com");
@@ -87,7 +88,7 @@ describe("MFA method selection", () => {
     expect(screen.getByTestId("mfa-sms-destination")).toHaveTextContent("No phone number registered");
     await user.click(screen.getByTestId("mfa-method-sms"));
     expect(screen.getByTestId("mfa-selected-destination")).toHaveTextContent("No phone number registered");
-    expect(screen.getByTestId("mfa-temporary-notice")).toHaveTextContent("No text message was sent.");
+    expect(screen.getByTestId("mfa-verification-notice")).not.toHaveTextContent("was sent");
   });
 
   it("the Authenticator app option goes straight to the same form", async () => {
@@ -95,7 +96,7 @@ describe("MFA method selection", () => {
     render(<TotpLoginForm contact={contact} />);
     await user.click(screen.getByTestId("mfa-method-authenticator"));
     expect(screen.getByLabelText("Six-digit authenticator code")).toBeInTheDocument();
-    expect(screen.getByTestId("mfa-temporary-notice")).not.toHaveTextContent("temporarily");
+    expect(screen.getByTestId("mfa-verification-notice")).toHaveTextContent("Authenticator verification");
     expect(screen.getByRole("button", { name: "Back to verification methods" })).toBeInTheDocument();
   });
 

@@ -16,7 +16,6 @@ export default function EnrollmentPendingPage() {
           <Clock3 className="mt-0.5 h-4 w-4 shrink-0" />
           <p>You cannot sign in until an administrator approves your enrollment. After approval, return here and sign in with your email and passcode.</p>
         </div>
-        <p className="text-[11px] leading-relaxed text-gray-600">This prototype does not send an approval email or text message. First Meridian is fictional and no real bank account is opened.</p>
         <Link href="/login" className="inline-flex h-11 w-full items-center justify-center rounded border border-bank-navy bg-bank-navy px-7 text-[14px] font-bold text-white hover:bg-bank-navyDark">
           Go to sign in
         </Link>

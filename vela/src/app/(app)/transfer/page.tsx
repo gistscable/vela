@@ -82,13 +82,13 @@ export default async function TransferPage({
               <ShieldCheck className="h-4 w-4 text-bank-red" /> Transfers are protected
             </h3>
             <p className="mt-1.5 text-[11.5px] leading-relaxed text-gray-600">
-              Internal transfers and Quick Pay are checked against your current balance and await admin approval before posting. Quick Pay is limited to First Meridian member accounts and does not reach an external network.
+              Internal transfers and Quick Pay are checked against your current balance and await approval before posting. Quick Pay is limited to First Meridian member accounts.
             </p>
           </div>
 
           <div className="border border-gray-200 bg-gray-50 p-4 text-[11px] leading-relaxed text-gray-600">
             <strong className="block text-gray-700">External payment rails</strong>
-            ACH and wire are listed as methods for an external-transfer request. No outbound bank payment is sent. Stripe ACH Checkout, when configured, accepts test keys only.
+            ACH and wire transfers can be submitted for review. Stripe ACH Checkout is also available when configured.
           </div>
         </aside>
       </div>

@@ -131,11 +131,8 @@ export default async function StatementPage({
 
           <div className="mt-8 border-t border-gray-200 pt-4">
             <p className="text-[9px] leading-relaxed text-gray-500">
-              <strong className="text-gray-600">Important information about this statement:</strong> First
-              Meridian Bank is a fictional institution. This product preview document has no legal value
-              and does not represent a real financial account. No funds are held and the product is not
-              FDIC insured. For questions about a real statement, contact your
-              financial institution directly. Generated on {formatDate(new Date())}.
+              <strong className="text-gray-600">Important information about this statement:</strong> If
+              you have questions about this statement, contact First Meridian Bank. Generated on {formatDate(new Date())}.
             </p>
           </div>
         </div>
