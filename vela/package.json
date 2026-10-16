@@ -13,7 +13,9 @@
     "db:migrate:deploy": "node scripts/prisma.mjs migrate deploy",
     "admin:grant": "node scripts/admin-grant.mjs",
     "prisma:generate": "node scripts/prisma.mjs generate",
-    "e2e": "node e2e/run.mjs"
+    "e2e": "node e2e/run.mjs",
+    "db:backfill-history": "tsx scripts/backfill-history.ts",
+    "db:backfill-history:apply": "tsx scripts/backfill-history.ts --apply"
   },
   "dependencies": {
     "@prisma/client": "^6.5.0",

@@ -133,3 +133,37 @@ The runner creates a disposable SQLite database and a separate test server, then
 ## Not production-ready
 
 This prototype does not provide card issuing, ACH payouts, biller delivery, any third-party P2P network, KYC/AML, dispute handling, fraud monitoring, a regulated ledger, safeguarding, reconciliation or customer support operations. Live consumer banking requires a licensed bank/BaaS relationship and provider-specific authorization. The code intentionally does not present the demo ledger as a real deposit account.
+
+## Long account history (2023-2026)
+
+Every user separately receives the same reconciled history (Jan 3, 2023 – Oct 15, 2026): a $950,000.00 opening deposit, $450,000.00 in later credits, and $1,054,717.25 in debits, ending at $345,282.75 per user ($245,282.75 Everyday Checking + $100,000.00 High-Yield Savings). Recurring bills post on fixed days each month (mortgage 1st, ComEd 15th, People Gas 18th, phone 20th, Xfinity 22nd, water 25th, savings sweep 28th); internal checking↔savings transfers net to zero. The generator is `src/lib/history.ts`, the demo seed uses it, and new users receive it automatically when their enrollment is approved (`ensureUserHistory` never overwrites existing completed activity). To preview or apply it for all existing users in a database:
+
+```bash
+npm run db:backfill-history          # dry run, writes nothing
+npm run db:backfill-history:apply    # replaces each user's transaction history
+```
+
+## Netlify deployment checklist (prepared, not yet deployed)
+
+The code is Netlify-ready: `netlify.toml` builds with the Next.js plugin on Node 22,
+and `src/lib/db.ts` automatically uses the real Prisma/PostgreSQL client when
+`DATABASE_PROVIDER=postgresql` (Supabase) and the local SQLite layer otherwise.
+
+1. **Supabase**: create a project, then from a terminal with the project's
+   `DATABASE_URL` (transaction pooler, port 6543, `?pgbouncer=true&connection_limit=1`)
+   and `DIRECT_URL` (session pooler/direct, port 5432) run:
+   ```bash
+   DATABASE_PROVIDER=postgresql npm run db:migrate:deploy
+   ```
+2. **Netlify**: import this GitHub repo as a new site (base directory `vela` if the
+   repo root is connected, so `netlify.toml` is picked up), and set environment
+   variables (never commit them):
+   - `DATABASE_URL` and `DIRECT_URL` (from Supabase, above)
+   - `DATABASE_PROVIDER=postgresql` (already set in `netlify.toml`)
+   - `AUTH_SECRET` (long random string) and `APP_ENCRYPTION_KEY` (separate random string)
+   - Do **not** set `PREVIEW_DEMO_MODE` in production.
+3. Deploy. New users then sign up, wait for admin approval, set up Google
+   Authenticator, and automatically receive the 2023-2026 history. To backfill
+   any existing Postgres users instead: `DATABASE_PROVIDER=postgresql npm run db:backfill-history:apply`.
+4. Optional demo accounts on the hosted copy only:
+   `ALLOW_DEMO_SEED=true npm run db:seed -- --reset` (creates demo@vela.app / demo1234).
