@@ -21,7 +21,27 @@ Neither migration edits a previously applied migration. The guard migration's ti
 migrations already applied in an existing database; `prisma migrate deploy` applies unapplied migrations
 regardless, and the guard does nothing there.
 
-## Steps
+## Applying through the Supabase dashboard (SQL editor)
+
+The scripts in [`docs/supabase/`](./supabase) are generated from `prisma/migrations` by
+`scripts/build-supabase-sql.mjs` (a test fails if they drift) and were replayed against real PostgreSQL, then
+checked with Prisma's own `migrate status` / `migrate deploy`, which accepted the hand-written records.
+Run them in this order, **per distinct production database**, one step at a time:
+
+| Step | Script | Writes? | Purpose |
+|---|---|---|---|
+| 1a | `01a_readonly_state_check.sql` | no | Database identity, tracked vs untracked, whether the 5 released migrations' tables/columns exist, username columns absent, no name clashes. Verdict `READY` or `STOP`. |
+| 1b | `01b_readonly_migration_history.sql` | no | Only if tracked: the recorded migrations and any failed/unfinished one. |
+| 2 | *(backup)* | — | Dashboard → Database → Backups: a restorable backup/PITR point taken now, or a `pg_dump`. |
+| 3a | `02_baseline_untracked_only.sql` | yes | **Only if untracked.** Creates `_prisma_migrations` and records the five released migrations. |
+| 3b | `03_apply_username_migrations.sql` | yes | Guard + username migrations (columns, unique index, CHECK) **and** their Prisma records, in one transaction. Refuses to run if preconditions fail. |
+| 4 | `04_verify_read_only.sql` | no | PASS/FAIL per column, index, constraint and migration record (checksums compared with the files in this PR). Verdict `ALL PASS`. |
+
+If a script errors, nothing from it is kept (it is one transaction); run `ROLLBACK;` once in the editor to be
+safe, then re-run `01a`/`04` and report the output. Never run `03` twice or edit the SQL: it checks for this.
+After step 4, confirm the **currently deployed** site still signs in, and only then merge the PR.
+
+## Steps (command-line alternative)
 
 Run every command below in `vela/` on your own machine, with the connection strings set as
 **environment variables in your own terminal**. Never paste them into chat, tickets, or commits.
@@ -107,6 +127,7 @@ run `prisma/rollback/20261016000000_username_login.down.sql`, then
   guard is a no-op, no row changes, `migrate status` then reports up to date; an *untracked* database —
   `migrate deploy` gives P3005, the baseline-then-deploy procedure above succeeds; re-running is a no-op.
   `verify-migration-state.mjs` was run against all of those and fails on a database that lacks the changes.
+- `docs/supabase/*.sql` (`tests/supabase-sql.test.ts` on PGlite, plus real PostgreSQL 18.4 with Prisma `migrate status`/`deploy` afterwards): tracked and untracked databases, preconditions refuse, re-run refuses, a mid-script failure rolls back everything, `01a` reports STOP for a missing released column.
 - PGlite tests (`tests/postgres-migrations.test.ts`): replay, drift against `schema.postgresql.prisma`,
   old release against the migrated schema, collisions, rollback SQL.
 - **Caveats:** the sandbox cannot download Prisma's native engines, so the lab ran Prisma's bundled WASM
