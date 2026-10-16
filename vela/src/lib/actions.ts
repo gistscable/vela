@@ -179,7 +179,7 @@ export async function depositAction(_prev: ActionState, fd: FormData): Promise<A
 
 export async function createStripeCheckoutAction(_prev: ActionState, _fd: FormData): Promise<ActionState> {
   await requireUser();
-  return { error: "Stripe test checkout is not configured. Use the internal deposit form instead." };
+  return { error: "Stripe checkout is not configured. Use the deposit form instead." };
 }
 
 export async function withdrawAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
@@ -205,7 +205,7 @@ export async function mobileDepositAction(_prev: ActionState, fd: FormData): Pro
   if (!account) return { error: "Choose one of your accounts." };
   if (!amount || amount <= 0) return { error: "Enter an amount greater than $0." };
   await db.transaction.create({
-    data: { accountId: account.id, amount, type: "DEPOSIT", category: "TRANSFER", description: "Mobile check deposit", counterparty: `Check ${str(fd, "checkNumber") || "••1023"} · preview only`, paymentMethod: "MOBILE_DEPOSIT", status: "PENDING_APPROVAL", reference: ref("mob") },
+    data: { accountId: account.id, amount, type: "DEPOSIT", category: "TRANSFER", description: "Mobile check deposit", counterparty: `Check ${str(fd, "checkNumber") || "••1023"}`, paymentMethod: "MOBILE_DEPOSIT", status: "PENDING_APPROVAL", reference: ref("mob") },
   });
   refresh();
   redirect("/dashboard?toast=mobile-deposit");

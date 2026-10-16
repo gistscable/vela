@@ -22,12 +22,12 @@ const SERVICES = [
   { href: "/transfer?tab=send", title: "Send money", body: "Submit a member-to-member Quick Pay request for approval.", icon: ArrowUpRight },
   { href: "/receive", title: "Receive money", body: "Request money from another First Meridian member.", icon: HandCoins },
   { href: "/mobile-deposit", title: "Mobile deposit", body: "Submit check details for approval; images stay on your device.", icon: Camera },
-  { href: "/transfer?tab=deposit", title: "Add funds from bank", body: "Submit a deposit request or use Stripe test checkout when configured.", icon: Landmark },
+  { href: "/transfer?tab=deposit", title: "Add funds from bank", body: "Submit a deposit request or use Stripe ACH checkout when available.", icon: Landmark },
   { href: "/bill-pay", title: "Bill Pay", body: "Save billers and submit payment instructions for approval.", icon: ReceiptText },
   { href: "/cards", title: "Card services", body: "View the virtual card, freeze or unfreeze it, and adjust its spending limit.", icon: CreditCard },
   { href: "/transactions", title: "Account activity", body: "Search posted activity and requests awaiting approval.", icon: FileText },
   { href: "/statements", title: "Statements & documents", body: "Review and print monthly account summaries.", icon: FileText },
-  { href: "/linked-accounts", title: "Linked accounts", body: "Connect test institutions with Plaid Sandbox when configured.", icon: Landmark },
+  { href: "/linked-accounts", title: "Linked accounts", body: "Connect external institutions with Plaid when available.", icon: Landmark },
   { href: "/help", title: "Help & support", body: "Read answers about transfers, deposits, sessions and service limits.", icon: FileText },
   { href: "/settings", title: "Profile & security settings", body: "Manage your profile and sign-in settings.", icon: Settings },
 ];
@@ -51,7 +51,7 @@ export default async function ServicesPage() {
         ))}
       </div>
       <p className="mt-5 border-t border-gray-200 pt-3 text-[10.5px] leading-relaxed text-gray-500">
-        Requests remain unposted until approved. No bank payment is sent through these services.
+        Requests remain unposted until approved.
       </p>
     </div>
   );

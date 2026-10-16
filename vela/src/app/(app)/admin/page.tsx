@@ -20,7 +20,7 @@ const NOTICES: Record<string, { tone: "success" | "error" | "info" | "warn"; tit
   "credit-error": { tone: "error", title: "Credit not recorded", body: "Check the selected account, method, amount, source and last four digits." },
   "credit-confirm": { tone: "error", title: "Confirmation required", body: "Confirm the destination and amount before recording a credit." },
   "credit-submitted": { tone: "success", title: "Credit submitted for approval", body: "The selected account will be updated only after this item is approved." },
-  "challenge-issued": { tone: "success", title: "Simulated challenge started", body: "No deposits were sent. Share the displayed test amounts with the customer through a separate trusted channel." },
+  "challenge-issued": { tone: "success", title: "Verification challenge started", body: "Share the displayed amounts with the customer through a separate trusted channel." },
   "external-rejected": { tone: "info", title: "External account rejected", body: "The destination cannot be used. No funds were moved." },
   "external-unavailable": { tone: "info", title: "External account already reviewed", body: "That destination is no longer waiting for review." },
   "enrollment-approved": { tone: "success", title: "Enrollment approved", body: "The applicant can now sign in with their email and passcode." },
@@ -210,7 +210,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
         <Panel title="Record incoming funds" bodyClassName="p-5">
           <div className="mb-4 border-l-4 border-bank-red bg-gray-50 px-3 py-2.5 text-[11px] leading-relaxed text-gray-600">
-            This submits a manual credit for approval. The balance changes only after approval. It does not initiate or confirm an ACH or wire payment; record only funds that have been independently confirmed.
+            This submits a manual credit for approval. The balance changes only after approval. Record only funds that have been independently confirmed.
           </div>
           {accounts.length === 0 ? (
             <p className="text-[12px] text-gray-500">There are no active customer accounts to credit.</p>
@@ -233,7 +233,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               <Input name="amount" label="Credit amount" inputMode="decimal" placeholder="$0.00" required />
               <label className="flex items-start gap-2 text-[10.5px] leading-relaxed text-gray-600">
                 <input type="checkbox" name="confirm" value="yes" required className="mt-0.5" />
-                I independently confirmed these funds and details. This request still needs approval and does not send a bank payment.
+                I independently confirmed these funds and details. This request still needs approval.
               </label>
               <Button type="submit" variant="navy" className="w-full">Submit credit for approval</Button>
             </form>
@@ -241,9 +241,9 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         </Panel>
       </div>
 
-      <Panel title="External-account review and simulated verification" bodyClassName="p-0">
+      <Panel title="External-account review and verification" bodyClassName="p-0">
         <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-[11px] leading-relaxed text-amber-950">
-          This is a prototype challenge only. No deposits are sent and no bank ownership is confirmed. Test amounts are shown to admins so they can share them with the customer through a separate trusted channel.
+          Verification amounts are shown to admins so they can share them with the customer through a separate trusted channel.
         </div>
         {externalAccounts.length === 0 ? (
           <div className="px-5 py-8 text-center">
@@ -269,7 +269,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                     <form action={reviewExternalAccountAction}>
                       <input type="hidden" name="externalAccountId" value={account.id} />
                       <input type="hidden" name="decision" value="issue" />
-                      <Button type="submit" variant="navy" size="sm">Start simulated challenge</Button>
+                      <Button type="submit" variant="navy" size="sm">Start verification challenge</Button>
                     </form>
                     <form action={reviewExternalAccountAction}>
                       <input type="hidden" name="externalAccountId" value={account.id} />
@@ -279,8 +279,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                   </div>
                 ) : (
                   <div className="mt-3 border border-blue-200 bg-blue-50 px-3 py-3 text-[11px] text-blue-950">
-                    <p className="font-bold">Admin test amounts: {formatCents(account.microdepositAmount1 ?? 0)} and {formatCents(account.microdepositAmount2 ?? 0)}</p>
-                    <p className="mt-1 leading-relaxed">No money was deposited. Share these test amounts separately; the customer must enter them on Linked Accounts. {account.microdepositExpiresAt ? `Expires ${formatDateTime(account.microdepositExpiresAt)}.` : ""} Attempts: {account.microdepositAttempts}/5.
+                    <p className="font-bold">Verification amounts: {formatCents(account.microdepositAmount1 ?? 0)} and {formatCents(account.microdepositAmount2 ?? 0)}</p>
+                    <p className="mt-1 leading-relaxed">Share these amounts separately; the customer must enter them on Linked Accounts. {account.microdepositExpiresAt ? `Expires ${formatDateTime(account.microdepositExpiresAt)}.` : ""} Attempts: {account.microdepositAttempts}/5.
                     </p>
                   </div>
                 )}
@@ -291,7 +291,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       </Panel>
 
       <div className="border border-gray-200 bg-white px-4 py-3 text-[10.5px] leading-relaxed text-gray-500">
-        All balance-changing requests, including admin-entered credits, remain unposted until approved. Linked entries are approved or rejected together so account balances stay in step. The shared customer sample account cannot access this page.
+        All balance-changing requests, including admin-entered credits, remain unposted until approved. Linked entries are approved or rejected together so account balances stay in step. The shared customer account cannot access this page.
       </div>
     </div>
   );

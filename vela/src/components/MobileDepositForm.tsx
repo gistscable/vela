@@ -51,7 +51,7 @@ export function MobileDepositForm({ accounts }: { accounts: AccountOption[] }) {
   return (
     <div className="space-y-4">
       <Alert tone="info" title="Check images stay on this device">
-        Images are not uploaded or stored. This request must be approved before the account balance changes; no bank processes the check.
+        Images are not uploaded or stored. This request must be approved before the account balance changes.
       </Alert>
       {(state?.error || localError) && <Alert tone="error" title="Check the deposit details">{state?.error ?? localError}</Alert>}
 
@@ -74,7 +74,7 @@ export function MobileDepositForm({ accounts }: { accounts: AccountOption[] }) {
             <Button type="submit" variant="navy" size="lg" className="w-full">
               Review mobile deposit
             </Button>
-            <p className="text-[10.5px] leading-relaxed text-gray-500">Check details and endorsements are not verified, and images are not submitted to any bank.</p>
+            <p className="text-[10.5px] leading-relaxed text-gray-500">Keep your check until your deposit has been approved.</p>
           </>
         ) : (
           <>
@@ -88,7 +88,7 @@ export function MobileDepositForm({ accounts }: { accounts: AccountOption[] }) {
                 <ReviewRow label="Amount" value={formatCents(amountCents ?? 0)} strong />
                 <ReviewRow label="Check number" value={checkNumber} />
                 <div className="border-t border-gray-200 pt-3 text-[10.5px] leading-relaxed text-gray-600">
-                  Confirming submits a request for approval. The balance stays the same until it is approved; no check is sent to a bank.
+                  Confirming submits a request for approval. The balance stays the same until it is approved.
                 </div>
               </div>
             </div>

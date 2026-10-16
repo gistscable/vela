@@ -147,15 +147,15 @@ describe("MFA method-choice screen", () => {
     }
   });
 
-  it("does not claim a code was sent or that contacts are verified, and offers four selectable methods", async () => {
+  it("offers four selectable methods without claiming a code was sent", async () => {
     const alice = await addUser(ALICE.email, ALICE.phone);
     await auth.setMfaChallengeCookie(alice.id, "verify");
     const { html } = await renderScreen();
-    expect(html).toContain("All options currently continue to authenticator verification");
-    expect(html).toMatch(/no text will be sent/);
-    expect(html).toMatch(/no email will be sent/);
-    expect(html).toMatch(/no approval request will be sent/);
-    expect(html).toContain("not verified");
+    expect(html).toContain("If you lose access to your authenticator, contact an administrator for a reset");
+    expect(html).not.toMatch(/no text will be sent/i);
+    expect(html).not.toMatch(/no email will be sent/i);
+    expect(html).not.toMatch(/no approval request will be sent/i);
+    expect(html).not.toContain("not verified");
     expect(html).not.toMatch(/code (was|has been|is being) sent/i);
     expect(html).not.toMatch(/(?<!not )(?<!un)verified (phone|email|contact)/i);
     expect(html).not.toMatch(/>\s*Verified\s*</);

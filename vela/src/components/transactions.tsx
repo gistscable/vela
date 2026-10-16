@@ -93,11 +93,11 @@ export function PageHeader({
 
 export function Toast({ kind }: { kind?: string }) {
   const messages: Record<string, string> = {
-    deposit: "Your deposit request is awaiting approval. The account balance has not changed, and no bank payment was sent.",
+    deposit: "Your deposit request is awaiting approval. The account balance has not changed.",
     "mobile-deposit": "Your mobile deposit request is awaiting approval. No check image was retained and no funds have been posted.",
-    withdraw: "Your external transfer request is awaiting approval. No bank payout was sent.",
+    withdraw: "Your external transfer request is awaiting approval.",
     transfer: "Your internal transfer request is awaiting approval. Neither account balance has changed.",
-    send: "Your Quick Pay request is awaiting approval. No payment network was used.",
+    send: "Your Quick Pay request is awaiting approval.",
   };
   if (!kind || !messages[kind]) return null;
   return (

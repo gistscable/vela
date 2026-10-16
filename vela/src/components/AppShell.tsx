@@ -88,7 +88,7 @@ export function AppShell({
               </Link>
               <div className="text-right">
                 <p className="font-semibold text-bank-navy">Welcome, {user.firstName} {user.lastName}</p>
-                <p className="text-[10px] text-gray-500">{sharedPreview ? "Shared sample account" : "Online Banking · Secure session"}</p>
+                <p className="text-[10px] text-gray-500">{sharedPreview ? "Shared account" : "Online Banking · Secure session"}</p>
               </div>
               {!sharedPreview && (
                 <form action={logoutAction}>
@@ -142,9 +142,8 @@ export function AppShell({
 
       <footer className="hidden border-t border-gray-300 bg-white md:block">
         <div className="mx-auto flex max-w-[1180px] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-5 text-[10.5px] text-gray-500">
-          <span>Fictional product · Not a bank or FDIC insured · No bank payment is sent</span>
-          {sharedPreview && <span>This customer sample account is shared; activity and saved destinations may change.</span>}
-          <span>© 2026 First Meridian concept.</span>
+          {sharedPreview && <span>This shared account's activity and saved destinations may change.</span>}
+          <span>© 2026 First Meridian Bank.</span>
           <nav className="ml-auto flex flex-wrap gap-4" aria-label="Footer links">
             <Link href="/help" className="hover:text-bank-link hover:underline">Help & support</Link>
             <Link href="/services" className="hover:text-bank-link hover:underline">Services</Link>
@@ -153,7 +152,7 @@ export function AppShell({
         </div>
       </footer>
       <footer className="border-t border-gray-200 bg-white px-4 py-3 text-center text-[10px] leading-relaxed text-gray-500 md:hidden">
-        <p>Fictional product, not a bank or FDIC insured. No bank payment is sent.{sharedPreview ? " This customer sample account is shared; activity and saved destinations may change." : ""}</p>
+        <p>© 2026 First Meridian Bank.{sharedPreview ? " This shared account's activity and saved destinations may change." : ""}</p>
         <nav className="mt-2 flex justify-center gap-4" aria-label="Footer links">
           <Link href="/help" className="font-semibold text-bank-link underline underline-offset-2">Help</Link>
           <Link href="/services" className="font-semibold text-bank-link underline underline-offset-2">Services</Link>
@@ -168,7 +167,7 @@ export function AppShell({
             <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
               <div>
                 <p className="text-[13px] font-bold text-bank-navy">Menu & services</p>
-                <p className="text-[10px] text-gray-500">{sharedPreview ? "Shared sample account" : `Signed in as ${user.firstName} ${user.lastName}`}</p>
+                <p className="text-[10px] text-gray-500">{sharedPreview ? "Shared account" : `Signed in as ${user.firstName} ${user.lastName}`}</p>
               </div>
               <button onClick={() => setMoreOpen(false)} aria-label="Close menu" className="p-2 text-gray-500"><X className="h-4 w-4" /></button>
             </div>

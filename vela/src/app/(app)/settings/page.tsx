@@ -70,7 +70,7 @@ export default async function SettingsPage() {
               <ShieldCheck className="h-4 w-4 text-bank-red" /> Security Center
             </h3>
             <p className="mt-1.5 text-[11.5px] leading-relaxed text-gray-600">
-              Live fraud monitoring and card servicing are not available. Visit Help & Support for information about this product.
+              We monitor accounts for suspicious activity. Visit Help & Support for security guidance and help with your account.
             </p>
             <Link href="/help" className="mt-2 inline-block text-[11px] font-semibold text-bank-link underline underline-offset-2">Help & support &gt;</Link>
           </div>

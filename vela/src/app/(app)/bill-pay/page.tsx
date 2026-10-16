@@ -52,7 +52,7 @@ export default async function BillPayPage({
       {confirmed && (
         <div className="mb-5">
           <Alert tone={confirmed.status === "PENDING_APPROVAL" ? "info" : "success"} title={confirmed.status === "PENDING_APPROVAL" ? "Payment awaiting approval" : "Payment instruction saved"}>
-            {formatCents(confirmed.amount)} for {confirmed.payee.name} is set for {formatDate(confirmed.scheduledFor)}.{confirmed.memo ? ` Memo: ${confirmed.memo}.` : ""} Confirmation {confirmed.confirmationNumber}. {confirmed.status === "PENDING_APPROVAL" ? "The balance is unchanged and no biller has been paid." : "This instruction does not confirm that an outside biller was paid."}
+            {formatCents(confirmed.amount)} for {confirmed.payee.name} is set for {formatDate(confirmed.scheduledFor)}.{confirmed.memo ? ` Memo: ${confirmed.memo}.` : ""} Confirmation {confirmed.confirmationNumber}. {confirmed.status === "PENDING_APPROVAL" ? "The balance is unchanged while awaiting approval." : ""}
           </Alert>
         </div>
       )}

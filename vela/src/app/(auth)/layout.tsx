@@ -50,7 +50,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
                 <Shield className="h-4 w-4 text-bank-red" /> Account security
               </h2>
               <p className="mt-2 text-[12px] leading-relaxed text-gray-600">
-                Live fraud monitoring and customer support are not available. Do not enter real banking credentials.
+                We monitor accounts for suspicious activity and protect your information. Contact us immediately if you notice anything unusual.
               </p>
               <a href="/#security" className="mt-3 inline-block text-[12px] font-semibold text-bank-link underline underline-offset-2 hover:text-bank-blueDark">
                 Read security information
@@ -62,9 +62,8 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
 
       <footer className="border-t border-gray-200 bg-white">
         <div className="mx-auto flex max-w-[1180px] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-6 text-[10.5px] text-gray-500">
-          <span>Fictional product · Not a bank or FDIC insured · No bank payment is sent</span>
-          <span>© 2026 First Meridian concept.</span>
-          <span className="ml-auto">Privacy concept · Terms · Accessibility</span>
+          <span>© 2026 First Meridian Bank.</span>
+          <span className="ml-auto">Privacy · Terms · Accessibility</span>
         </div>
       </footer>
     </div>

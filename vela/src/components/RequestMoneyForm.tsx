@@ -55,7 +55,7 @@ export function RequestMoneyForm({ accounts }: { accounts: AccountOption[] }) {
               <ReviewRow label="Deposit into" value={selectedAccount?.name ?? "Account"} />
               <ReviewRow label="Amount" value={formatCents(parseCents(review.amount) ?? 0)} strong />
               <ReviewRow label="Reason" value={review.memo} />
-              <p className="border-t border-gray-200 pt-3 text-[10.5px] leading-relaxed text-gray-600">If the recipient chooses to pay, the transfer still requires admin approval. No external payment network is used.</p>
+              <p className="border-t border-gray-200 pt-3 text-[10.5px] leading-relaxed text-gray-600">If the recipient chooses to pay, the transfer still requires approval.</p>
             </div>
           </div>
           <input type="hidden" name="accountId" value={review.accountId} />

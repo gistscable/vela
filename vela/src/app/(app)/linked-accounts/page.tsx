@@ -43,7 +43,6 @@ export default async function LinkedAccountsPage() {
       />
       <LinkedAccountsClient
         configured={plaid.ready}
-        environment={plaid.environment}
         sharedPreview={sharedPreview}
         externalAccounts={externalAccounts.map((account) => ({
           id: account.id,

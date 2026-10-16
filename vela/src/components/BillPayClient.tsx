@@ -127,7 +127,6 @@ export function BillPayClient({
                   <option value="ONCE">One time</option>
                   <option value="MONTHLY">Monthly instruction</option>
                 </Select>
-                <p className="-mt-3 text-[10px] leading-relaxed text-gray-500">Monthly instructions are recorded once; future payments are not sent automatically.</p>
                 <Input name="memo" label="Memo (optional)" placeholder="e.g. October electric bill" maxLength={120} />
                 <Button type="submit" variant="navy" size="lg" className="w-full">Review payment</Button>
               </form>
@@ -141,7 +140,7 @@ export function BillPayClient({
                   <ReviewItem label="Repeat" value={review.frequency === "MONTHLY" ? "Monthly instruction" : "One time"} />
                   {review.memo && <ReviewItem label="Memo" value={review.memo} />}
                   <div className="mt-2 border-t border-gray-200 pt-3 text-[10.5px] leading-relaxed text-amber-900">
-                    This request needs approval before the balance changes. No biller or outside bank is paid.
+                    This request needs approval before the balance changes.
                   </div>
                 </ReviewBox>
                 <input type="hidden" name="payeeId" value={review.payeeId} />
@@ -163,10 +162,6 @@ export function BillPayClient({
           <div className="border-l-4 border-bank-red bg-gray-50 p-4">
             <h3 className="flex items-center gap-2 text-[12.5px] font-bold text-bank-navy"><CalendarDays className="h-4 w-4 text-bank-red" /> Scheduled payments</h3>
             <p className="mt-1.5 text-[11px] leading-relaxed text-gray-600">Select a payment date and review the details before submitting. Requests remain unposted until approval.</p>
-          </div>
-          <div className="border border-gray-200 bg-white p-4 text-[11px] leading-relaxed text-gray-600">
-            <strong className="block text-gray-800">Payment processing</strong>
-            This is a prototype bill-pay flow only. Production biller delivery requires an approved bank partner or payment provider, risk controls and settlement reconciliation.
           </div>
         </aside>
       </section>

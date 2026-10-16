@@ -40,7 +40,7 @@ export function LoginForm() {
               Forgot your passcode?
             </summary>
             <p className="mt-1 max-w-[220px] text-[10.5px] leading-relaxed text-gray-500">
-              Passcode reset is not available in this version.
+              Contact customer service if you need help resetting your passcode.
             </p>
           </details>
         </div>
@@ -85,7 +85,7 @@ export function SignupForm() {
         <section aria-labelledby="enroll-identification">
           <div className="mb-3 border-b border-gray-200 pb-2">
             <h2 id="enroll-identification" className="text-[13px] font-bold text-bank-navy">2. Identify your relationship</h2>
-            <p className="mt-0.5 text-[10.5px] text-gray-500">This is a visual prototype step, not an identity check.</p>
+            <p className="mt-0.5 text-[10.5px] text-gray-500">Select how you would like to identify your relationship.</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="w-full text-[12px] font-bold text-gray-700">
@@ -95,10 +95,10 @@ export function SignupForm() {
                 <option value="CARD">Debit card</option>
               </select>
             </label>
-            <Input label="Last six demo digits" name="lastSix" inputMode="numeric" pattern="[0-9]{6}" minLength={6} maxLength={6} placeholder="123456" autoComplete="off" required />
+            <Input label="Last six digits" name="lastSix" inputMode="numeric" pattern="[0-9]{6}" minLength={6} maxLength={6} placeholder="123456" autoComplete="off" required />
           </div>
           <p className="mt-2 border-l-4 border-bank-red bg-gray-50 px-3 py-2 text-[10.5px] leading-relaxed text-gray-600">
-            Use sample digits only, such as 123456. Do not enter real account or card details. This value is checked for form format and discarded; it is not saved.
+            Enter the last six digits of your account or card number.
           </p>
         </section>
 
@@ -108,11 +108,11 @@ export function SignupForm() {
           </div>
           <div className="space-y-3">
             <div className="border border-gray-200 bg-gray-50 px-3 py-2.5 text-[11px] leading-relaxed text-gray-600">
-              <span className="font-bold text-gray-800">SSN or TIN verification is not available.</span> This prototype will not ask for or store a Social Security number, tax ID, or document.
+              <span className="font-bold text-gray-800">Protect your information.</span> We do not ask for or store a Social Security number, tax ID, or identity document on this form.
             </div>
             <label className="flex items-start gap-2.5 text-[11.5px] leading-relaxed text-gray-700">
               <input type="checkbox" name="alternateVerification" value="yes" required className="mt-0.5 h-4 w-4 accent-[#b3202e]" />
-              Use the alternate, non-sensitive demo path instead of entering an SSN or TIN.
+              Use the alternate path instead of entering an SSN or TIN.
             </label>
           </div>
         </section>
@@ -148,19 +148,9 @@ export function SignupForm() {
               name="password"
               autoComplete="new-password"
               placeholder="At least 8 characters"
-              hint="Use 8+ characters. This creates your prototype sign-in profile."
+              hint="Use 8+ characters."
               required
             />
-          </div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <div>
-              <Input label="Email verification code" disabled placeholder="Not available" autoComplete="off" />
-              <p className="mt-1 text-[10px] leading-relaxed text-gray-500">No email is sent; email-code verification is not configured.</p>
-            </div>
-            <div>
-              <Input label="Card PIN" disabled placeholder="Never collected" autoComplete="off" />
-              <p className="mt-1 text-[10px] leading-relaxed text-gray-500">PIN entry is intentionally disabled. Never enter a real PIN.</p>
-            </div>
           </div>
         </section>
 
@@ -173,7 +163,7 @@ export function SignupForm() {
             name="openingDeposit"
             inputMode="decimal"
             placeholder="$0.00"
-            hint="Creates an unposted request for admin review; it does not send or receive money."
+            hint="Submitted for review before it is posted to your account."
           />
         </section>
 
@@ -181,9 +171,6 @@ export function SignupForm() {
           <Button type="submit" loading={pending} variant="red" size="lg" className="w-full">
             Continue enrollment
           </Button>
-          <p className="text-[10.5px] leading-relaxed text-gray-500">
-            Submitting creates a profile in this prototype. Your age, residency, identity and email are not verified. First Meridian is fictional and is not a bank; no real deposit, transfer, card service or account is opened.
-          </p>
         </div>
       </form>
     </div>

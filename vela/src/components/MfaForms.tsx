@@ -44,7 +44,7 @@ export function TotpSetupForm({
           <Button type="submit" variant="red" size="lg" loading={pending} className="w-full">Verify and enable authenticator</Button>
         </form>
         <p className="border-l-4 border-bank-red bg-gray-50 px-3 py-2 text-[10.5px] leading-relaxed text-gray-600">
-          This is the only sign-in code method. No code is sent by email or text. The setup registers one TOTP secret for this user; because TOTP is a standard, another compatible app could import the same key. Keep it private. If you lose the phone, an administrator must reset the authenticator.
+          Keep your setup key private. If you lose your phone, an administrator must reset your authenticator.
         </p>
       </div>
     </div>
@@ -107,7 +107,6 @@ export function TotpLoginForm({ contact }: { contact: MfaContactHints }) {
 function MethodCard({
   method,
   icon,
-  badge,
   featured = false,
   wide = false,
   onChoose,
@@ -116,7 +115,6 @@ function MethodCard({
 }: {
   method: MfaMethod;
   icon: React.ReactNode;
-  badge: string;
   featured?: boolean;
   wide?: boolean;
   onChoose: (method: MfaMethod) => void;
@@ -137,7 +135,6 @@ function MethodCard({
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-2">
           <span className="text-[12px] font-bold text-bank-navy">{METHOD_LABELS[method]}</span>
-          <span className="border border-gray-300 bg-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-gray-600">{badge}</span>
         </span>
         {children}
       </span>
@@ -160,37 +157,31 @@ function MethodList({
       <section aria-labelledby="methods-heading" className="space-y-3">
         <h2 id="methods-heading" className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Select how you want to verify</h2>
 
-        <MethodCard method="authenticator" icon={<KeyRound className="h-4 w-4" aria-hidden="true" />} badge="Working now" featured {...shared}>
+        <MethodCard method="authenticator" icon={<KeyRound className="h-4 w-4" aria-hidden="true" />} featured {...shared}>
           <span className="mt-1 block text-[10.5px] leading-relaxed text-gray-600">Enter the six-digit code from Google Authenticator.</span>
         </MethodCard>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <MethodCard method="sms" icon={<Smartphone className="h-4 w-4" aria-hidden="true" />} badge="Uses authenticator for now" {...shared}>
+          <MethodCard method="sms" icon={<Smartphone className="h-4 w-4" aria-hidden="true" />} {...shared}>
             <span data-testid="mfa-sms-destination" className="mt-1 block text-[11px] leading-relaxed text-gray-700">
               {contact.phoneLastFour ? <>Phone ending in <strong>{contact.phoneLastFour}</strong></> : NO_PHONE_REGISTERED}
             </span>
-            <span className="mt-1 block text-[10px] leading-relaxed text-gray-500">
-              {contact.phoneLastFour ? "Registered on your profile, not verified. " : ""}Text messages are not enabled yet; no text will be sent.
-            </span>
           </MethodCard>
 
-          <MethodCard method="email" icon={<Mail className="h-4 w-4" aria-hidden="true" />} badge="Uses authenticator for now" {...shared}>
+          <MethodCard method="email" icon={<Mail className="h-4 w-4" aria-hidden="true" />} {...shared}>
             <span data-testid="mfa-email-destination" className="mt-1 block break-all text-[11px] leading-relaxed text-gray-700">
               {contact.emailMasked ? <strong>{contact.emailMasked}</strong> : NO_EMAIL_REGISTERED}
             </span>
-            <span className="mt-1 block text-[10px] leading-relaxed text-gray-500">
-              {contact.emailMasked ? "Registered on your profile, not verified. " : ""}Email codes are not enabled yet; no email will be sent.
-            </span>
           </MethodCard>
 
-          <MethodCard method="app" icon={<ShieldCheck className="h-4 w-4" aria-hidden="true" />} badge="Uses authenticator for now" wide {...shared}>
-            <span className="mt-1 block text-[10px] leading-relaxed text-gray-500">There is no companion mobile app connected yet; no approval request will be sent.</span>
+          <MethodCard method="app" icon={<ShieldCheck className="h-4 w-4" aria-hidden="true" />} wide {...shared}>
+            <span className="mt-1 block text-[10px] leading-relaxed text-gray-500">Approve this sign-in from your First Meridian app.</span>
           </MethodCard>
         </div>
       </section>
 
       <p data-testid="mfa-methods-notice" className="border-l-4 border-bank-red bg-gray-50 px-3 py-2 text-[10.5px] leading-relaxed text-gray-600">
-        All options currently continue to authenticator verification, and no text, email or app request is sent. If you lose access to your authenticator, contact an administrator for a reset.
+        If you lose access to your authenticator, contact an administrator for a reset.
       </p>
     </>
   );
@@ -210,20 +201,14 @@ function AuthenticatorStep({ method, contact, onBack }: { method: MfaMethod; con
 
   return (
     <div data-testid="mfa-authenticator-step" className="space-y-4">
-      <div data-testid="mfa-temporary-notice">
-        <Alert tone="info" title={method === "authenticator" ? "Authenticator verification" : `${METHOD_LABELS[method]} is not available yet`}>
+      <div data-testid="mfa-verification-notice">
+        <Alert tone="info" title="Authenticator verification">
           {method === "authenticator" ? (
             <>Open Google Authenticator and enter the current six-digit code for your First Meridian account.</>
           ) : (
             <>
-              Authenticator verification is temporarily being used instead.{" "}
-              <strong>
-                {method === "sms" && "No text message was sent."}
-                {method === "email" && "No email was sent."}
-                {method === "app" && "No request was sent to the First Meridian app."}
-              </strong>{" "}
               Open Google Authenticator and enter the current six-digit code for your account.
-              {destination && <> You selected: <span data-testid="mfa-selected-destination">{destination}</span> (registered, not verified).</>}
+              {destination && <> You selected: <span data-testid="mfa-selected-destination">{destination}</span>.</>}
             </>
           )}
         </Alert>

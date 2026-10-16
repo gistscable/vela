@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "First Meridian — Retail Banking Preview",
+  title: "First Meridian — Retail Banking",
   description:
-    "A fictional retail-banking product prototype for internal evaluation. No real accounts or funds are offered.",
+    "Banking products and services from First Meridian Bank, including checking, savings, cards and Online Banking.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

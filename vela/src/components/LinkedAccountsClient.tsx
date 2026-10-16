@@ -29,13 +29,11 @@ type ExternalAccountView = {
 
 export function LinkedAccountsClient({
   configured,
-  environment,
   banks,
   externalAccounts,
   sharedPreview,
 }: {
   configured: boolean;
-  environment: string;
   banks: LinkedBankView[];
   externalAccounts: ExternalAccountView[];
   sharedPreview: boolean;
@@ -121,7 +119,7 @@ export function LinkedAccountsClient({
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-bank-sand bg-bank-sand text-bank-navy"><Building2 className="h-5 w-5" /></div>
             <div>
-              <h2 className="text-[13px] font-bold text-gray-900">Link with Plaid {configured ? `· ${environment}` : "· not configured"}</h2>
+              <h2 className="text-[13px] font-bold text-gray-900">Link with Plaid{configured ? "" : " · not configured"}</h2>
               <p className="mt-1 text-[11.5px] leading-relaxed text-gray-600">Use Plaid Link to securely identify an external bank and its accounts. Credentials stay with Plaid; only the encrypted access token and masked account details are stored here.</p>
             </div>
           </div>
@@ -142,7 +140,7 @@ export function LinkedAccountsClient({
           </div>
           {!sharedPreview && !configured && (
             <div className="mt-4 border-l-4 border-bank-red bg-gray-50 p-3 text-[11px] leading-relaxed text-gray-600">
-              Configure <code>PLAID_CLIENT_ID</code>, <code>PLAID_SECRET</code>, <code>PLAID_ENV=sandbox</code> and <code>APP_ENCRYPTION_KEY</code> in the server environment to enable Plaid Sandbox.
+              Configure <code>PLAID_CLIENT_ID</code>, <code>PLAID_SECRET</code>, <code>PLAID_ENV</code> and <code>APP_ENCRYPTION_KEY</code> in the server environment to enable Plaid.
             </div>
           )}
         </Panel>
@@ -150,14 +148,13 @@ export function LinkedAccountsClient({
         <div className="space-y-4">
           <div className="border border-blue-200 bg-blue-50 p-4">
             <h3 className="flex items-center gap-2 text-[12.5px] font-bold text-bank-navy"><ShieldCheck className="h-4 w-4" /> What linking does</h3>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-gray-700">Plaid linking in this MVP is for account identification and verification only. It does not move funds. A Stripe ACH test checkout is a separate flow and does not use a Plaid token.</p>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-gray-700">Plaid linking is for account identification and verification. A Stripe ACH checkout is a separate flow and does not use a Plaid token.</p>
           </div>
           <div className="border border-gray-200 bg-gray-50 p-4 text-[11px] leading-relaxed text-gray-600">
             <p className="flex items-center gap-2 font-bold text-gray-800"><LockKeyhole className="h-3.5 w-3.5" /> Security notes</p>
             <ul className="mt-2 list-disc space-y-1 pl-4">
               <li>Provider tokens are encrypted at rest with AES-256-GCM.</li>
-              <li>Use sandbox credentials here; never paste secrets into the browser.</li>
-              <li>Production linking requires Plaid approval, consent and data-retention policies.</li>
+              <li>Never paste secrets into the browser.</li>
             </ul>
           </div>
         </div>
@@ -212,7 +209,7 @@ export function LinkedAccountsClient({
         )}
       </Panel>
 
-      <p className="flex items-center gap-1 text-[10px] text-gray-500"><ExternalLink className="h-3 w-3" /> Plaid Sandbox integration. Review Plaid's end-user terms and required disclosures before customer use.</p>
+      <p className="flex items-center gap-1 text-[10px] text-gray-500"><ExternalLink className="h-3 w-3" /> Review Plaid's end-user terms and required disclosures.</p>
     </div>
   );
 }
@@ -220,9 +217,9 @@ export function LinkedAccountsClient({
 function ExternalAccountCard({ account }: { account: ExternalAccountView }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(verifyExternalAccountAction, null);
   const label = account.status === "VERIFIED"
-    ? "Verified for prototype use"
+    ? "Verified"
     : account.status === "CHALLENGE_ACTIVE"
-      ? "Test amounts requested"
+      ? "Verification amounts requested"
       : account.status === "REJECTED"
         ? "Rejected"
         : "Awaiting admin review";
@@ -255,12 +252,12 @@ function ExternalAccountCard({ account }: { account: ExternalAccountView }) {
         <p className="mt-3 text-[11px] leading-relaxed text-gray-600">This destination was rejected and cannot be used. Contact support if you think this is an error.</p>
       )}
       {account.status === "VERIFIED" && (
-        <p className="mt-3 text-[11px] leading-relaxed text-gray-600">This prototype challenge is complete. Transfer requests to this destination still require admin approval, and no bank payment is sent.</p>
+        <p className="mt-3 text-[11px] leading-relaxed text-gray-600">Verification is complete. Transfer requests to this destination still require approval.</p>
       )}
       {account.status === "CHALLENGE_ACTIVE" && (
         <div className="mt-3 space-y-3 border border-blue-200 bg-blue-50 p-3">
           <p className="text-[10.5px] leading-relaxed text-blue-950">
-            Enter the two test amounts shared with you by the administrator. This challenge is simulated: no money was sent and it does not confirm real account ownership.
+            Enter the two amounts shared with you by the administrator.
             {account.microdepositExpiresAt ? ` Expires ${formatDateTime(account.microdepositExpiresAt)}.` : ""}
           </p>
           {state?.error && <Alert tone="error" title="Could not verify destination">{state.error}</Alert>}
@@ -311,10 +308,10 @@ function ExternalDestinationForm({ sharedPreview }: { sharedPreview: boolean }) 
         }),
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || "Could not save this preview destination.");
+      if (!response.ok) throw new Error(result.error || "Could not save this destination.");
       window.location.assign("/linked-accounts");
     } catch (caught) {
-      setPreviewError(caught instanceof Error ? caught.message : "Could not save this preview destination.");
+      setPreviewError(caught instanceof Error ? caught.message : "Could not save this destination.");
       setPreviewPending(false);
     }
   }
@@ -322,7 +319,7 @@ function ExternalDestinationForm({ sharedPreview }: { sharedPreview: boolean }) 
   return (
     <Panel title="Add an external account" bodyClassName="p-5">
       <p className="mb-4 border-l-4 border-bank-red bg-gray-50 px-3 py-2.5 text-[11px] leading-relaxed text-gray-600">
-        Account and routing numbers are used only to check the entry and derive the last four digits. Full numbers are discarded and never stored. This form does not contact a bank or send money.
+        Account and routing numbers are used only to check the entry and derive the last four digits. Full numbers are discarded and never stored.
       </p>
       {state?.error && <div className="mb-4"><Alert tone="error" title="Could not save destination">{state.error}</Alert></div>}
       {state?.success && state.message && <div className="mb-4"><Alert tone="success">{state.message}</Alert></div>}
