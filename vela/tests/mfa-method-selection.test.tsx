@@ -15,9 +15,9 @@ import { buildMfaContactHints } from "@/lib/mfa-contact";
 const contact = buildMfaContactHints({ email: "alice.wonder@example.com", phone: "+1 (312) 555-0192" });
 
 const PATHS = [
-  { id: "sms", testId: "mfa-method-sms", name: /Text message to phone/ },
-  { id: "email", testId: "mfa-method-email", name: /Email code/ },
-  { id: "app", testId: "mfa-method-app-approval", name: /Approve in First Meridian app/ },
+  { id: "sms", testId: "mfa-method-sms", name: /Text message to phone/, selected: "Text message to phone ending in 0192", unavailable: "This demo does not send text message codes." },
+  { id: "email", testId: "mfa-method-email", name: /Email code/, selected: "Email code to a•••@example.com", unavailable: "This demo does not send email codes." },
+  { id: "app", testId: "mfa-method-app-approval", name: /Approve in First Meridian app/, selected: "Approve in First Meridian app", unavailable: "This demo does not send app approval requests." },
 ] as const;
 
 beforeEach(() => {
@@ -39,7 +39,9 @@ describe("MFA method selection", () => {
     expect(screen.getByTestId("mfa-email-destination")).toHaveTextContent("a•••@example.com");
     // Nothing to submit until a method is chosen.
     expect(screen.queryByLabelText("Six-digit authenticator code")).toBeNull();
-    expect(screen.getByTestId("mfa-methods-notice")).toHaveTextContent("If you lose access to your authenticator, contact an administrator for a reset");
+    expect(screen.getByTestId("mfa-method-authenticator")).toHaveTextContent("Enter the six-digit code from Authenticator.");
+    expect(screen.queryByTestId("mfa-methods-notice")).toBeNull();
+    expect(document.body).not.toHaveTextContent("If you lose access to your authenticator");
   });
 
   for (const path of PATHS) {
@@ -55,10 +57,13 @@ describe("MFA method selection", () => {
       expect(within(step).getByRole("button", { name: "Verify and sign in" })).toBeInTheDocument();
       expect(within(step).getByRole("button", { name: "Back to verification methods" })).toBeInTheDocument();
 
+      expect(screen.getByRole("heading", { name: "Verify your sign-in" })).toBeInTheDocument();
       const notice = screen.getByTestId("mfa-verification-notice");
-      expect(notice).toHaveTextContent("Authenticator verification");
-      expect(notice).toHaveTextContent("Open Google Authenticator and enter the current six-digit code");
-      expect(notice.textContent).not.toMatch(/temporarily|not available yet|was sent|will be sent/i);
+      expect(within(notice).getByText("Verification")).toBeInTheDocument();
+      expect(within(notice).getByTestId("mfa-selected-destination")).toHaveTextContent(path.selected);
+      expect(notice).toHaveTextContent(path.unavailable);
+      expect(notice).toHaveTextContent("Enter the current six-digit code from Authenticator for your account.");
+      expect(notice).not.toHaveTextContent(/Google Authenticator|Authenticator verification|code (was|has been) sent/i);
 
       // The method list is gone, and choosing alone sent nothing to the server.
       expect(screen.queryByTestId("mfa-method-sms")).toBeNull();
@@ -75,7 +80,7 @@ describe("MFA method selection", () => {
     expect(screen.getByTestId("mfa-verification-notice")).not.toHaveTextContent("not verified");
     await user.click(screen.getByTestId("mfa-back"));
     await user.click(screen.getByTestId("mfa-method-email"));
-    expect(screen.getByTestId("mfa-selected-destination")).toHaveTextContent("a•••@example.com");
+    expect(screen.getByTestId("mfa-selected-destination")).toHaveTextContent("Email code to a•••@example.com");
     for (const full of ["alice.wonder", "alice.wonder@example.com", "312", "555-0192", "5550192"]) {
       expect(container.innerHTML).not.toContain(full);
     }
@@ -84,19 +89,26 @@ describe("MFA method selection", () => {
 
   it("states honestly when a destination is missing", async () => {
     const user = userEvent.setup();
-    render(<TotpLoginForm contact={buildMfaContactHints({ email: "a@example.com", phone: null })} />);
+    render(<TotpLoginForm contact={buildMfaContactHints({ email: null, phone: null })} />);
     expect(screen.getByTestId("mfa-sms-destination")).toHaveTextContent("No phone number registered");
     await user.click(screen.getByTestId("mfa-method-sms"));
-    expect(screen.getByTestId("mfa-selected-destination")).toHaveTextContent("No phone number registered");
-    expect(screen.getByTestId("mfa-verification-notice")).not.toHaveTextContent("was sent");
+    expect(screen.getByTestId("mfa-selected-destination")).toHaveTextContent("Text message to phone (No phone number registered)");
+    expect(screen.getByTestId("mfa-verification-notice")).toHaveTextContent("This demo does not send text message codes.");
+    await user.click(screen.getByTestId("mfa-back"));
+    await user.click(screen.getByTestId("mfa-method-email"));
+    expect(screen.getByTestId("mfa-selected-destination")).toHaveTextContent("Email code (No email address registered)");
+    expect(screen.getByTestId("mfa-verification-notice")).toHaveTextContent("This demo does not send email codes.");
   });
 
-  it("the Authenticator app option goes straight to the same form", async () => {
+  it("the Authenticator app option uses the generic verification heading with Authenticator instructions", async () => {
     const user = userEvent.setup();
     render(<TotpLoginForm contact={contact} />);
     await user.click(screen.getByTestId("mfa-method-authenticator"));
+    expect(screen.getByRole("heading", { name: "Verify your sign-in" })).toBeInTheDocument();
     expect(screen.getByLabelText("Six-digit authenticator code")).toBeInTheDocument();
-    expect(screen.getByTestId("mfa-verification-notice")).toHaveTextContent("Authenticator verification");
+    expect(screen.getByTestId("mfa-selected-destination")).toHaveTextContent("Authenticator app");
+    expect(screen.getByTestId("mfa-verification-notice")).toHaveTextContent("Enter the current six-digit code from Authenticator for your account.");
+    expect(screen.getByTestId("mfa-verification-notice")).not.toHaveTextContent("This demo does not send");
     expect(screen.getByRole("button", { name: "Back to verification methods" })).toBeInTheDocument();
   });
 

@@ -151,7 +151,9 @@ describe("MFA method-choice screen", () => {
     const alice = await addUser(ALICE.email, ALICE.phone);
     await auth.setMfaChallengeCookie(alice.id, "verify");
     const { html } = await renderScreen();
-    expect(html).toContain("If you lose access to your authenticator, contact an administrator for a reset");
+    expect(html).toContain("Enter the six-digit code from Authenticator.");
+    expect(html).not.toContain("If you lose access to your authenticator, contact an administrator for a reset");
+    expect(html).not.toContain("Google Authenticator");
     expect(html).not.toMatch(/no text will be sent/i);
     expect(html).not.toMatch(/no email will be sent/i);
     expect(html).not.toMatch(/no approval request will be sent/i);
