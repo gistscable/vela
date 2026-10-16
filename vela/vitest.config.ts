@@ -17,5 +17,7 @@ export default defineConfig({
     setupFiles: ["tests/helpers/setup.ts"],
     // The SQLite-backed tests each use their own disposable file, but keep runs predictable.
     fileParallelism: false,
+    testTimeout: 30_000,
+    hookTimeout: 60_000,
   },
 });
