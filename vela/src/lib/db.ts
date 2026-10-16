@@ -14,7 +14,13 @@ import "server-only";
  * Prisma-shaped on purpose.
  */
 import { randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
 import path from "node:path";
+// Static import so bundlers (and Netlify's function bundler) can see the
+// dependency and resolve the generated client at runtime instead of failing
+// with "Cannot find module '.prisma/client/default'". Keep this package in
+// next.config.mjs -> serverExternalPackages so it stays a runtime require.
+import { PrismaClient } from "@prisma/client";
 
 export type User = {
   id: string; email: string; passwordHash: string; firstName: string; lastName: string;
@@ -77,8 +83,10 @@ const DB_PATH = process.env.DATABASE_URL?.startsWith("file:")
 
 // node:sqlite is loaded lazily (and never on Netlify/Postgres) so bundlers
 // and Node 20 runtimes don't fail resolving it at module load.
-// eslint-disable-next-line @typescript-eslint/no-implied-eval
-const nodeRequire = eval("require") as NodeRequire;
+// `createRequire(import.meta.url)` gives the ESM server bundle a real
+// `require` without the `eval("require")` trick, which bundlers cannot
+// statically analyse.
+const nodeRequire = createRequire(import.meta.url);
 let sqlite: any;
 function getSqlite(): any {
   if (!sqlite) sqlite = new (nodeRequire("node:sqlite").DatabaseSync)(DB_PATH);
@@ -410,8 +418,9 @@ const usePostgres =
   /^postgres(ql)?:\/\//.test(process.env.DATABASE_URL ?? "");
 
 function createPrismaClient(): any {
-  // Required lazily so local SQLite runs never load the generated client.
-  const { PrismaClient } = nodeRequire("@prisma/client");
+  // The client comes from the static import above so the dependency is
+  // visible to the bundler; the wrapper keeps the loosely-typed `Database`
+  // surface the rest of the app is written against.
   return new PrismaClient();
 }
 
