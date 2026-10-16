@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Clock3, FileText } from "lucide-react";
 import { formatCents, formatDateTime } from "@/lib/money";
 import { paymentMethodLabel, safeCounterparty, safeTransactionDescription } from "@/lib/external-account-display";
-import type { Transaction } from "@prisma/client";
+import type { Transaction } from "@/lib/db";
 
 /** Plain, ledger-style row: merchant/date on the left, signed amount on the right. */
 export function TransactionRow({ tx, dense = false }: { tx: Transaction; dense?: boolean }) {

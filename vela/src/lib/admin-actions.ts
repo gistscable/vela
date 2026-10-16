@@ -8,6 +8,7 @@ import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { containsLongAccountLikeNumber, lastFourDigits, safeInstitutionName } from "@/lib/external-account-display";
 import { parseCents } from "@/lib/money";
+import { ensureUserHistory } from "@/lib/history";
 
 function randomRef(prefix: string) {
   return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -208,6 +209,15 @@ export async function reviewEnrollmentAction(formData: FormData) {
       data: { enrollmentStatus: "APPROVED", enrollmentReviewedById: admin.id, enrollmentReviewedAt: now },
     });
     if (result.count !== 1) redirect("/admin?notice=enrollment-unavailable");
+    // Future users automatically receive the standard Jan 2023 -> Oct 2026
+    // history (and Checking/Savings accounts if signup did not create them).
+    // ensureUserHistory is a no-op once a user has completed activity, so
+    // this never overwrites a customer's real transactions.
+    try {
+      await ensureUserHistory(db, userId);
+    } catch (error) {
+      console.error("Failed to provision account history for approved user", userId, error);
+    }
     refreshApprovalViews();
     redirect("/admin?notice=enrollment-approved");
   }
