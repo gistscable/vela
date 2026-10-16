@@ -12,8 +12,8 @@ import type { Metadata } from "next";
 export const metadata: Metadata = { title: "Receive Money — First Meridian" };
 
 const notices: Record<string, { title: string; body: string; tone: "success" | "info" | "error" }> = {
-  requested: { title: "Request sent", body: "The member can review your request; any payment remains subject to admin approval.", tone: "success" },
-  paid: { title: "Payment approved", body: "The internal transfer was posted to both accounts.", tone: "success" },
+  requested: { title: "Request sent", body: "The member can view and respond to your request.", tone: "success" },
+  paid: { title: "Payment complete", body: "The internal transfer was posted to both accounts.", tone: "success" },
   declined: { title: "Request declined", body: "The request was declined. No funds were moved.", tone: "info" },
   canceled: { title: "Request canceled", body: "Your open request was canceled.", tone: "info" },
   insufficient: { title: "Payment not sent", body: "The selected account does not have enough available funds.", tone: "error" },
@@ -25,7 +25,7 @@ const notices: Record<string, { title: string; body: string; tone: "success" | "
 };
 
 function requestStatusLabel(status: string) {
-  return status === "PENDING_APPROVAL" ? "Awaiting approval" : status.toLowerCase().replaceAll("_", " ");
+  return status === "PENDING_APPROVAL" || status === "PROCESSING_APPROVAL" ? "Processing" : status.toLowerCase().replaceAll("_", " ");
 }
 
 export default async function ReceivePage({ searchParams }: { searchParams: Promise<{ notice?: string }> }) {
@@ -58,7 +58,7 @@ export default async function ReceivePage({ searchParams }: { searchParams: Prom
       />
       {notice && <Alert tone={notice.tone} title={notice.title}>{notice.body}</Alert>}
       <Alert tone="info" title="First Meridian member transfers">
-        A payment request stays unposted until it is approved. Both account balances remain unchanged beforehand.
+        Payment requests appear in account activity as they are processed. Balances update when processing is complete.
       </Alert>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
@@ -95,9 +95,9 @@ export default async function ReceivePage({ searchParams }: { searchParams: Prom
                           </Select>
                           <label className="flex items-start gap-2 text-[10.5px] leading-relaxed text-gray-600">
                             <input type="checkbox" name="confirm" value="yes" required className="mt-0.5" />
-                            Submit this payment for admin approval. My balance changes only after approval.
+                            My balance updates when the payment is processed.
                           </label>
-                          <Button type="submit" variant="navy" size="sm" className="w-full">Submit for approval</Button>
+                          <Button type="submit" variant="navy" size="sm" className="w-full">Submit payment</Button>
                         </form>
                       ) : <p className="text-[11px] text-gray-500">No active account is available to make this payment.</p>}
                       <form action={closeMoneyRequestAction} className="self-end">

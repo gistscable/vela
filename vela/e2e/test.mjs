@@ -105,7 +105,7 @@ async function finishAuthenticator(page, email) {
     const selectionPaths = [
       { id: "mfa-method-sms", selected: digits.length >= 8 ? `Text message to phone ending in ${digits.slice(-4)}` : "Text message to phone (No phone number registered)", instructions: "Enter the six-digit code from your phone to verify." },
       { id: "mfa-method-email", selected: `Email code to ${expectedMaskedEmail}`, instructions: "Enter the six-digit code from your email to verify." },
-      { id: "mfa-method-app-approval", selected: "Approve in First Meridian app", instructions: "Enter the current six-digit code from your account for approval." },
+      { id: "mfa-method-app-approval", selected: "Approve in First Meridian app", instructions: "Enter the current six-digit code from your account to verify your sign-in." },
     ];
     let selectionPathsOk = true;
     for (const path of selectionPaths) {
@@ -249,12 +249,12 @@ async function main() {
   await page.locator('input[type="file"]').nth(1).setInputFiles(image);
   await page.getByRole("button", { name: "Review mobile deposit" }).click();
   await page.getByRole("heading", { name: "Review your mobile deposit" }).waitFor({ state: "visible" });
-  await page.getByRole("button", { name: "Submit for approval" }).click();
+  await page.getByRole("button", { name: "Submit deposit" }).click();
   await page.waitForURL((url) => url.pathname.startsWith("/transactions/"), { timeout: 20000 });
   await page.getByRole("heading", { name: "Transaction receipt" }).waitFor({ state: "visible" });
   const mobileTx = await db.transaction.findFirst({ where: { description: "Mobile check deposit", status: "PENDING_APPROVAL", account: { user: { email: "demo@vela.app" } } }, orderBy: { createdAt: "desc" } });
   const mobileBalanceAfter = balanceSnapshot(await accountOwner("demo@vela.app"));
-  check("Mobile deposit waits for approval before changing the balance", Boolean(mobileTx) && snapshotsMatch(mobileBalanceBefore, mobileBalanceAfter) && (await page.locator("main").innerText()).includes("Awaiting admin approval"));
+  check("Mobile deposit waits for approval before changing the balance", Boolean(mobileTx) && snapshotsMatch(mobileBalanceBefore, mobileBalanceAfter) && (await page.locator("main").innerText()).includes("Processing"));
   await page.getByRole("button", { name: "Open menu" }).click();
   const topMenu = page.getByRole("dialog", { name: "More banking services" });
   await topMenu.getByRole("link", { name: "All services" }).click();
@@ -264,19 +264,19 @@ async function main() {
 
   /* ---------------- DEPOSIT ---------------- */
   await page.goto(`${BASE}/transfer?tab=deposit`, { waitUntil: "load" });
-  if (!(await page.getByRole("button", { name: "Submit deposit for approval" }).count())) {
-    await page.getByText("Use the internal deposit form", { exact: true }).click();
+  if (!(await page.getByRole("button", { name: "Submit deposit request" }).count())) {
+    await page.getByText("Use another deposit method", { exact: true }).click();
   }
-  const internalDepositForm = page.locator("form").filter({ has: page.getByRole("button", { name: "Submit deposit for approval" }) });
+  const internalDepositForm = page.locator("form").filter({ has: page.getByRole("button", { name: "Submit deposit request" }) });
   await internalDepositForm.locator('input[name="amount"]').waitFor({ state: "visible" });
   const depositBalanceBefore = balanceSnapshot(await accountOwner("demo@vela.app"));
   await internalDepositForm.locator('input[name="amount"]').fill("250.00");
-  await internalDepositForm.getByRole("button", { name: "Submit deposit for approval" }).click();
+  await internalDepositForm.getByRole("button", { name: "Submit deposit request" }).click();
   await page.waitForURL((url) => url.pathname.startsWith("/transactions/"), { timeout: 20000 });
   const depositReceipt = await page.locator("main").innerText();
   const depositTx = await db.transaction.findFirst({ where: { description: "Deposit", status: "PENDING_APPROVAL", account: { user: { email: "demo@vela.app" } } }, orderBy: { createdAt: "desc" } });
   const depositBalanceAfter = balanceSnapshot(await accountOwner("demo@vela.app"));
-  check("Deposit request stays unposted until approval", Boolean(depositTx) && snapshotsMatch(depositBalanceBefore, depositBalanceAfter) && depositReceipt.includes("Awaiting admin approval"));
+  check("Deposit request stays unposted until approval", Boolean(depositTx) && snapshotsMatch(depositBalanceBefore, depositBalanceAfter) && depositReceipt.includes("Processing"));
   await shot(page, "03-deposit-request");
 
   /* ---------------- INTERNAL TRANSFER ---------------- */
@@ -288,7 +288,7 @@ async function main() {
   await page.click('button:has-text("Review transfer")');
   await page.waitForSelector("text=Review this transfer");
   check("Internal transfer opens a review step", true);
-  await page.getByRole("button", { name: "Submit for approval" }).click();
+  await page.getByRole("button", { name: "Submit transfer" }).click();
   await page.waitForURL((url) => url.pathname.startsWith("/transactions/"), { timeout: 20000 });
   const transferRows = await db.transaction.findMany({ where: { description: "E2E savings sweep", status: "PENDING_APPROVAL", account: { user: { email: "demo@vela.app" } } } });
   const transferBalanceAfter = balanceSnapshot(await accountOwner("demo@vela.app"));
@@ -307,7 +307,7 @@ async function main() {
   await page.click('button:has-text("Review Quick Pay")');
   await page.waitForSelector("text=Review your Quick Pay");
   check("Quick Pay opens a recipient review step", true);
-  await page.getByRole("button", { name: "Submit for approval" }).click();
+  await page.getByRole("button", { name: "Send Quick Pay" }).click();
   await page.waitForURL((url) => url.pathname.startsWith("/transactions/"), { timeout: 20000 });
   const quickPayRows = await db.transaction.findMany({ where: { description: "E2E lunch split", status: "PENDING_APPROVAL" } });
   const quickPayBalanceAfter = {
@@ -342,9 +342,9 @@ async function main() {
     amara: balanceSnapshot(await accountOwner("demo@vela.app")),
     marcus: balanceSnapshot(await accountOwner("marcus@example.com")),
   };
-  await marcusPage.getByRole("button", { name: "Submit for approval" }).waitFor({ state: "visible" });
-  await marcusPage.getByLabel("Submit this payment for admin approval. My balance changes only after approval.").check();
-  await marcusPage.getByRole("button", { name: "Submit for approval" }).click();
+  await marcusPage.getByRole("button", { name: "Submit payment" }).waitFor({ state: "visible" });
+  await marcusPage.getByLabel("My balance updates when the payment is processed.").check();
+  await marcusPage.getByRole("button", { name: "Submit payment" }).click();
   await marcusPage.waitForURL((url) => url.pathname.startsWith("/transactions/"), { timeout: 20000 });
   const requestPayment = await db.moneyRequest.findFirst({ where: { recipient: { email: "marcus@example.com" }, requester: { email: "demo@vela.app" }, status: "PENDING_APPROVAL" }, orderBy: { createdAt: "desc" } });
   const requestPaymentRows = requestPayment ? await db.transaction.findMany({ where: { reference: requestPayment.reference, status: "PENDING_APPROVAL" } }) : [];
@@ -354,7 +354,7 @@ async function main() {
   };
   check("Paying a money request waits for approval on both accounts", Boolean(requestPayment) && requestPaymentRows.length === 2 && snapshotsMatch(requestPayBalancesBefore.amara, requestPayBalancesAfter.amara) && snapshotsMatch(requestPayBalancesBefore.marcus, requestPayBalancesAfter.marcus));
   await page.goto(`${BASE}/receive`, { waitUntil: "load" });
-  check("Requester sees the payment awaiting approval", (await page.locator("main").innerText()).includes("Awaiting approval"));
+  check("Requester sees the payment processing", (await page.locator("main").innerText()).includes("Processing"));
 
   /* ---------------- BILL PAY ---------------- */
   await page.goto(`${BASE}/bill-pay`, { waitUntil: "load" });
@@ -372,14 +372,14 @@ async function main() {
   await page.waitForSelector("text=Review your bill payment");
   check("Bill Pay shows a review before scheduling", true);
   const billPayBalanceBefore = balanceSnapshot(await accountOwner("demo@vela.app"));
-  await page.getByRole("button", { name: "Submit for approval" }).click();
+  await page.getByRole("button", { name: "Submit payment" }).click();
   await page.waitForURL((url) => /^\/transactions\//.test(url.pathname), { timeout: 20000 });
   await page.getByRole("heading", { name: "Transaction receipt" }).waitFor({ state: "visible" });
   const billText = await page.locator("main").innerText();
   const billPayment = await db.billPayment.findFirst({ where: { user: { email: "demo@vela.app" }, memo: "E2E electric bill" }, orderBy: { createdAt: "desc" } });
   const billTransaction = billPayment ? await db.transaction.findFirst({ where: { reference: billPayment.confirmationNumber } }) : null;
   const billPayBalanceAfter = balanceSnapshot(await accountOwner("demo@vela.app"));
-  check("Bill Pay stays unposted until approved and retains the scheduled details", Boolean(billPayment) && billPayment.status === "PENDING_APPROVAL" && billTransaction?.status === "PENDING_APPROVAL" && snapshotsMatch(billPayBalanceBefore, billPayBalanceAfter) && billText.includes("E2E electric bill") && billText.includes("Bill Pay") && billText.includes("Approval required"));
+  check("Bill Pay stays unposted until approved and retains the scheduled details", Boolean(billPayment) && billPayment.status === "PENDING_APPROVAL" && billTransaction?.status === "PENDING_APPROVAL" && snapshotsMatch(billPayBalanceBefore, billPayBalanceAfter) && billText.includes("E2E electric bill") && billText.includes("Bill Pay") && billText.includes("Payment processing."));
 
   // Save an external destination; only the last four digits should be retained.
   await page.goto(`${BASE}/linked-accounts`, { waitUntil: "load" });
@@ -400,7 +400,7 @@ async function main() {
   await page.getByText("E2E checking", { exact: false }).last().waitFor({ state: "visible" });
   const externalDestination = await db.externalAccount.findFirst({ where: { user: { email: "demo@vela.app" }, nickname: "E2E checking" } });
   const destinationText = await page.locator("main").innerText();
-  check("New external account stores only last four digits and awaits review", Boolean(externalDestination) && externalDestination.status === "PENDING_APPROVAL" && externalDestination.accountMask === "1296" && destinationText.includes("E2E Example Bank") && destinationText.includes("1296") && destinationText.toLowerCase().includes("awaiting admin review") && !destinationText.includes("27361891296") && !destinationText.includes("021000021"), JSON.stringify({ status: externalDestination?.status, mask: externalDestination?.accountMask, text: destinationText }));
+  check("New external account stores only last four digits and awaits review", Boolean(externalDestination) && externalDestination.status === "PENDING_APPROVAL" && externalDestination.accountMask === "1296" && destinationText.includes("E2E Example Bank") && destinationText.includes("1296") && destinationText.toLowerCase().includes("being processed") && !destinationText.includes("27361891296") && !destinationText.includes("021000021"), JSON.stringify({ status: externalDestination?.status, mask: externalDestination?.accountMask, text: destinationText }));
 
   await page.goto(`${BASE}/transfer?tab=withdraw`, { waitUntil: "load" });
   await page.getByText("Verification is still in progress", { exact: true }).waitFor();
@@ -430,12 +430,12 @@ async function main() {
   const expectedFirst = challenge?.microdepositAmount1 ?? 0;
   const expectedSecond = challenge?.microdepositAmount2 ?? 0;
   const dollars = (cents) => (cents / 100).toFixed(2);
-  check("Customer sees a verification form without the hidden challenge values", customerChallengeText.includes("Enter the two amounts shared with you by the administrator") && !customerChallengeText.includes("Verification amounts:") && await customerChallengeCard.locator('input[name="microdepositAmount1"]').inputValue() === "" && await customerChallengeCard.locator('input[name="microdepositAmount2"]').inputValue() === "");
+  check("Customer sees a verification form without the hidden challenge values", customerChallengeText.includes("Enter the two small deposit amounts associated with this account") && !customerChallengeText.includes("Verification amounts:") && await customerChallengeCard.locator('input[name="microdepositAmount1"]').inputValue() === "" && await customerChallengeCard.locator('input[name="microdepositAmount2"]').inputValue() === "");
   const wrongFirst = expectedFirst === 99 ? 98 : expectedFirst + 1;
   await page.locator("article").filter({ hasText: "E2E checking" }).getByLabel("First amount").fill(dollars(wrongFirst));
   await page.locator("article").filter({ hasText: "E2E checking" }).getByLabel("Second amount").fill(dollars(expectedSecond));
   await page.locator("article").filter({ hasText: "E2E checking" }).getByRole("button", { name: "Verify" }).click();
-  await page.getByText("Those amounts do not match", { exact: false }).waitFor();
+  await page.getByText("Those amounts didn't match", { exact: false }).waitFor();
   const afterWrongAmount = await db.externalAccount.findUnique({ where: { id: externalDestination.id } });
   check("Wrong amounts count as an attempt but do not verify the destination", afterWrongAmount?.status === "CHALLENGE_ACTIVE" && afterWrongAmount.microdepositAttempts === 1);
   await page.reload({ waitUntil: "load" });
@@ -452,7 +452,7 @@ async function main() {
   await page.fill('input[name="amount"]', "99999.99");
   await page.getByRole("button", { name: "Review external transfer" }).click();
   await page.getByText("Review external transfer", { exact: true }).waitFor({ state: "visible" });
-  await page.getByRole("button", { name: "Submit for approval" }).click();
+  await page.getByRole("button", { name: "Submit transfer" }).click();
   await page.waitForSelector("text=Insufficient funds", { timeout: 20000 });
   check("External withdrawal blocks an amount above the available balance", true);
   await shot(page, "04-move-money-error");
@@ -463,23 +463,23 @@ async function main() {
   await page.fill('input[name="amount"]', "10.50");
   await page.getByRole("button", { name: "Review external transfer" }).click();
   await page.getByText("Review external transfer", { exact: true }).waitFor({ state: "visible" });
-  await page.getByRole("button", { name: "Submit for approval" }).click();
+  await page.getByRole("button", { name: "Submit transfer" }).click();
   await page.waitForURL((url) => url.pathname.startsWith("/transactions/"), { timeout: 20000 });
   await page.getByRole("heading", { name: "External transfer receipt" }).waitFor({ state: "visible" });
   const externalReceipt = await page.locator("main").innerText();
   const achWithdrawal = await db.transaction.findFirst({ where: { type: "WITHDRAWAL", paymentMethod: "ACH", status: "PENDING_APPROVAL", account: { user: { email: "demo@vela.app" } }, amount: -1050 }, orderBy: { createdAt: "desc" } });
   const withdrawalBalanceAfter = balanceSnapshot(await accountOwner("demo@vela.app"));
-  check("ACH withdrawal awaits approval, leaves balance unchanged and masks details", Boolean(achWithdrawal) && snapshotsMatch(withdrawalBalanceBefore, withdrawalBalanceAfter) && externalReceipt.includes("ACH") && externalReceipt.includes("Awaiting admin approval") && externalReceipt.includes("External transfer record") && !externalReceipt.includes("27361891296") && !externalReceipt.includes("021000021"));
+  check("ACH withdrawal awaits approval, leaves balance unchanged and masks details", Boolean(achWithdrawal) && snapshotsMatch(withdrawalBalanceBefore, withdrawalBalanceAfter) && externalReceipt.includes("ACH") && externalReceipt.includes("Processing") && externalReceipt.includes("External transfer record") && !externalReceipt.includes("27361891296") && !externalReceipt.includes("021000021"));
 
   await page.goto(`${BASE}/transfer?tab=withdraw`, { waitUntil: "load" });
   await page.selectOption('select[name="externalAccountId"]', { label: "E2E checking · E2E Example Bank · •••• 1296" });
   await page.selectOption('select[name="paymentMethod"]', "WIRE");
   await page.fill('input[name="amount"]', "7.25");
   await page.getByRole("button", { name: "Review external transfer" }).click();
-  await page.getByRole("button", { name: "Submit for approval" }).click();
+  await page.getByRole("button", { name: "Submit transfer" }).click();
   await page.waitForURL((url) => url.pathname.startsWith("/transactions/"), { timeout: 20000 });
   const wireReceipt = await page.locator("main").innerText();
-  check("Wire option creates a pending external transfer request", wireReceipt.includes("Wire") && wireReceipt.includes("Awaiting admin approval") && wireReceipt.includes("External transfer record"));
+  check("Wire option creates a pending external transfer request", wireReceipt.includes("Wire") && wireReceipt.includes("Processing") && wireReceipt.includes("External transfer record"));
 
   /* ---------------- ADMIN APPROVALS ---------------- */
   const balancesBeforeAdmin = {
@@ -545,23 +545,47 @@ async function main() {
 
   const marcusChecking = (await accountOwner("marcus@example.com")).accounts.find((account) => account.type === "CHECKING");
   const marcusBalanceBeforeCredit = marcusChecking?.balance;
-  await adminPage.selectOption('select[name="accountId"]', marcusChecking.id);
+  await adminPage.selectOption('select[name="recipient"]', marcusChecking.id);
   await adminPage.selectOption('select[name="paymentMethod"]', "WIRE");
+  await adminPage.fill('input[name="senderName"]', "Taylor Morgan");
   await adminPage.fill('input[name="sourceName"]', "Lakeview Credit Union");
   await adminPage.fill('input[name="sourceLast4"]', "3141");
   await adminPage.fill('input[name="amount"]', "125.00");
+  await adminPage.fill('input[name="activityDate"]', "2026-10-01");
   await adminPage.getByLabel(/I independently confirmed these funds and details/).check();
-  await adminPage.getByRole("button", { name: "Submit credit for approval" }).click();
+  await adminPage.getByRole("button", { name: "Submit payment for approval" }).click();
   await adminPage.waitForURL("**/admin?notice=credit-submitted");
-  const adminCredit = await db.transaction.findFirst({ where: { description: "Admin credit request", accountId: marcusChecking.id }, orderBy: { createdAt: "desc" } });
+  const adminCredit = await db.transaction.findFirst({ where: { description: "Taylor Morgan", accountId: marcusChecking.id }, orderBy: { createdAt: "desc" } });
   const marcusBalanceAfterCreditRequest = (await db.account.findUnique({ where: { id: marcusChecking.id } }))?.balance;
-  check("Admin-entered wire credit remains pending until separately approved", Boolean(adminCredit) && adminCredit.status === "PENDING_APPROVAL" && adminCredit.paymentMethod === "WIRE" && adminCredit.counterparty?.includes("3141") && marcusBalanceAfterCreditRequest === marcusBalanceBeforeCredit);
+  check("Named, date-selected wire payment remains pending until separately approved", Boolean(adminCredit) && adminCredit.status === "PENDING_APPROVAL" && adminCredit.paymentMethod === "WIRE" && adminCredit.description === "Taylor Morgan" && adminCredit.counterparty?.includes("Lakeview Credit Union") && adminCredit.counterparty?.includes("3141") && adminCredit.createdAt.toISOString().slice(0, 10) === "2026-10-01" && marcusBalanceAfterCreditRequest === marcusBalanceBeforeCredit);
   if (adminCredit) await reviewGroup(adminPage, adminCredit.reference);
   const approvedCredit = adminCredit ? await db.transaction.findUnique({ where: { id: adminCredit.id } }) : null;
   const marcusBalanceAfterCreditApproval = (await db.account.findUnique({ where: { id: marcusChecking.id } }))?.balance;
-  check("Approved admin credit updates the target balance and activity", approvedCredit?.status === "COMPLETED" && approvedCredit.amount === 12500 && marcusBalanceAfterCreditApproval === (marcusBalanceBeforeCredit ?? 0) + 12500);
+  check("Approved named payment updates the target balance and activity", approvedCredit?.status === "COMPLETED" && approvedCredit.amount === 12500 && marcusBalanceAfterCreditApproval === (marcusBalanceBeforeCredit ?? 0) + 12500);
   await marcusPage.goto(`${BASE}/transactions`, { waitUntil: "load" });
-  check("Approved incoming credit appears in the recipient's recent activity", (await marcusPage.locator("main").innerText()).includes("Admin credit request"));
+  const senderActivityText = await marcusPage.locator("main").innerText();
+  check("Approved incoming payment displays only the sender name in recipient activity", senderActivityText.includes("Taylor Morgan") && !senderActivityText.includes("Payment from Taylor Morgan") && !senderActivityText.includes("Lakeview Credit Union"));
+
+  const checkingRecipients = (await db.account.findMany({
+    where: { type: "CHECKING", status: "ACTIVE", user: { role: "CUSTOMER", enrollmentStatus: "APPROVED" } },
+    select: { id: true, userId: true },
+  })).filter((account, index, all) => all.findIndex((candidate) => candidate.userId === account.userId) === index);
+  await adminPage.selectOption('select[name="recipient"]', "ALL_CUSTOMERS");
+  await adminPage.selectOption('select[name="paymentMethod"]', "ACH");
+  await adminPage.fill('input[name="senderName"]', "Acme Community Foundation");
+  await adminPage.fill('input[name="sourceName"]', "");
+  await adminPage.fill('input[name="sourceLast4"]', "");
+  await adminPage.fill('input[name="amount"]', "1.25");
+  await adminPage.fill('input[name="activityDate"]', "2026-10-02");
+  await adminPage.getByLabel(/I independently confirmed these funds and details/).check();
+  await adminPage.getByRole("button", { name: "Submit payment for approval" }).click();
+  await adminPage.waitForURL("**/admin?notice=credit-submitted");
+  const bulkPayments = await db.transaction.findMany({ where: { description: "Acme Community Foundation" } });
+  const bulkReference = bulkPayments[0]?.reference;
+  check("Admin can send the same named payment to every approved customer's checking account", bulkPayments.length === checkingRecipients.length && bulkPayments.every((row) => row.status === "PENDING_APPROVAL" && row.amount === 125 && row.reference === bulkReference) && checkingRecipients.every((account) => bulkPayments.some((row) => row.accountId === account.id)));
+  if (bulkReference) await reviewGroup(adminPage, bulkReference);
+  await marcusPage.reload({ waitUntil: "load" });
+  check("Batch payment appears in customer activity by sender", (await marcusPage.locator("main").innerText()).includes("Acme Community Foundation"));
   await marcusPage.close();
 
   /* ---------------- TRANSACTIONS ---------------- */
@@ -650,8 +674,8 @@ async function main() {
 
   await page.goto(`${BASE}/linked-accounts`, { waitUntil: "load" });
   await page.waitForSelector("text=No external accounts linked");
-  const plaidSetup = await page.locator("main").innerText();
-  check("Plaid linking page explains sandbox configuration", plaidSetup.includes("PLAID_CLIENT_ID") && plaidSetup.includes("not configured"));
+  const bankLinkingText = await page.locator("main").innerText();
+  check("Bank-linking configuration stays hidden from customers", !/(PLAID_CLIENT_ID|PLAID_SECRET|not configured|Plaid|access token|environment variable)/i.test(bankLinkingText));
 
   /* ---------------- LOGOUT / SIGNUP ---------------- */
   await page.click('button[title="Sign out"]');
@@ -690,29 +714,23 @@ async function main() {
   await page.waitForURL("**/enrollment/pending", { timeout: 20000 });
   const pendingPageText = await page.locator("main").innerText();
   const pendingAda = await db.user.findUnique({ where: { email: adaEmail } });
-  check("Enrollment creates a pending profile and blocks sign-in", pendingAda?.enrollmentStatus === "PENDING_APPROVAL" && pendingPageText.includes("cannot sign in until an administrator approves") && !(await page.context().cookies(BASE)).some((cookie) => cookie.name === "fmb_session_v2"));
+  check("Enrollment creates a pending profile and blocks sign-in", pendingAda?.enrollmentStatus === "PENDING_APPROVAL" && pendingPageText.includes("Your enrollment is being processed") && !/admin|approval|review/i.test(pendingPageText) && !(await page.context().cookies(BASE)).some((cookie) => cookie.name === "fmb_session_v2"));
   check("Pending enrollment page links back to sign in", await page.getByRole("link", { name: "Go to sign in" }).isVisible());
 
   await page.getByRole("link", { name: "Go to sign in" }).click();
   await page.fill('input[name="username"]', adaUsername.toLowerCase());
   await page.fill('input[name="password"]', "supersecret1");
   await page.click('button[type="submit"]');
-  await page.getByText("Your enrollment is still awaiting approval", { exact: false }).waitFor();
+  await page.getByText("Your enrollment is being processed. Please try signing in again later.", { exact: false }).waitFor();
   check("Login refuses a pending enrollment", !(await page.context().cookies(BASE)).some((cookie) => cookie.name === "fmb_session_v2"));
 
-  const pendingOpeningRequest = await db.transaction.findFirst({ where: { account: { user: { email: adaEmail } }, description: "Opening deposit", status: "PENDING_APPROVAL" } });
   await adminPage.goto(`${BASE}/admin`, { waitUntil: "load" });
-  if (pendingOpeningRequest) {
-    const openingGroup = adminPage.locator(`[data-group-key="ref:${pendingOpeningRequest.reference}"]`);
-    await openingGroup.getByRole("button", { name: "Approve and post" }).click();
-    await adminPage.waitForURL("**/admin?notice=enrollment-pending", { timeout: 20000 });
-  }
-  const guardedOpeningRequest = pendingOpeningRequest ? await db.transaction.findUnique({ where: { id: pendingOpeningRequest.id } }) : null;
   const pendingAdaAccount = pendingAda ? await db.account.findFirst({ where: { userId: pendingAda.id, type: "CHECKING" } }) : null;
-  check("Balance-changing requests cannot post before enrollment approval", Boolean(pendingOpeningRequest && guardedOpeningRequest?.status === "PENDING_APPROVAL" && pendingAdaAccount?.balance === 0));
+  const pendingAdaActivityCount = pendingAda ? await db.transaction.count({ where: { account: { userId: pendingAda.id } } }) : 0;
+  check("Pending enrollment starts with an empty, zero-balance account", pendingAda?.enrollmentStatus === "PENDING_APPROVAL" && pendingAdaAccount?.balance === 0 && pendingAdaActivityCount === 0);
 
-  await adminPage.goto(`${BASE}/admin`, { waitUntil: "load" });
   const enrollmentReview = adminPage.locator("article").filter({ hasText: adaEmail }).filter({ hasText: "Awaiting enrollment approval" });
+  await enrollmentReview.locator('select[name="historyChoice"]').selectOption("none");
   await enrollmentReview.getByRole("button", { name: "Approve enrollment" }).click();
   await adminPage.waitForURL("**/admin?notice=enrollment-approved", { timeout: 20000 });
   const approvedAda = await db.user.findUnique({ where: { email: adaEmail } });
@@ -727,9 +745,9 @@ async function main() {
   const newUserText = await page.locator("body").innerText();
   const newUserMain = await page.locator("main").innerText();
   const ada = await accountOwner(adaEmail);
-  const adaOpeningRequest = ada ? await db.transaction.findFirst({ where: { account: { userId: ada.id }, description: "Opening deposit" } }) : null;
+  const adaActivityCount = ada ? await db.transaction.count({ where: { account: { userId: ada.id } } }) : 0;
   check("Approved applicant can sign in", newUserText.includes("Welcome, Ada"));
-  check("Opening deposit stays pending and does not increase the new account balance", Boolean(ada) && ada.accounts.find((account) => account.type === "CHECKING")?.balance === 0 && adaOpeningRequest?.status === "PENDING_APPROVAL" && adaOpeningRequest.amount === 50000 && newUserMain.includes("Awaiting approval") && !newUserMain.includes("Trader Joe's"));
+  check("Admin's opt-out leaves the new customer's accounts at zero with no generated activity", Boolean(ada) && ada.accounts.find((account) => account.type === "CHECKING")?.balance === 0 && adaActivityCount === 0 && !newUserMain.includes("Trader Joe's"));
   await shot(page, "12-new-user-dashboard");
 
   const priorTotpSecret = authenticatorSecrets.get(adaEmail);

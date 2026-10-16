@@ -51,7 +51,7 @@ export function MobileDepositForm({ accounts }: { accounts: AccountOption[] }) {
   return (
     <div className="space-y-4">
       <Alert tone="info" title="Check images stay on this device">
-        Images are not uploaded or stored. This request must be approved before the account balance changes.
+        Images are not uploaded or stored. Keep your check until the deposit appears in account activity.
       </Alert>
       {(state?.error || localError) && <Alert tone="error" title="Check the deposit details">{state?.error ?? localError}</Alert>}
 
@@ -74,7 +74,7 @@ export function MobileDepositForm({ accounts }: { accounts: AccountOption[] }) {
             <Button type="submit" variant="navy" size="lg" className="w-full">
               Review mobile deposit
             </Button>
-            <p className="text-[10.5px] leading-relaxed text-gray-500">Keep your check until your deposit has been approved.</p>
+            <p className="text-[10.5px] leading-relaxed text-gray-500">Keep your check until the deposit appears in account activity.</p>
           </>
         ) : (
           <>
@@ -88,7 +88,7 @@ export function MobileDepositForm({ accounts }: { accounts: AccountOption[] }) {
                 <ReviewRow label="Amount" value={formatCents(amountCents ?? 0)} strong />
                 <ReviewRow label="Check number" value={checkNumber} />
                 <div className="border-t border-gray-200 pt-3 text-[10.5px] leading-relaxed text-gray-600">
-                  Confirming submits a request for approval. The balance stays the same until it is approved.
+                  Confirming submits your deposit. The balance updates when processing is complete.
                 </div>
               </div>
             </div>
@@ -99,7 +99,7 @@ export function MobileDepositForm({ accounts }: { accounts: AccountOption[] }) {
             <input type="hidden" name="backSelected" value={back ? "yes" : ""} />
             <div className="grid grid-cols-2 gap-3">
               <Button type="button" variant="outline" onClick={() => setReview(false)}>Edit details</Button>
-              <Button type="submit" loading={pending} variant="navy">Submit for approval</Button>
+              <Button type="submit" loading={pending} variant="navy">Submit deposit</Button>
             </div>
           </>
         )}

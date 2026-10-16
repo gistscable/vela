@@ -17,7 +17,7 @@ const contact = buildMfaContactHints({ email: "alice.wonder@example.com", phone:
 const PATHS = [
   { id: "sms", testId: "mfa-method-sms", name: /Text message to phone/, selected: "Text message to phone ending in 0192", instructions: "Enter the six-digit code from your phone to verify." },
   { id: "email", testId: "mfa-method-email", name: /Email code/, selected: "Email code to a•••@example.com", instructions: "Enter the six-digit code from your email to verify." },
-  { id: "app", testId: "mfa-method-app-approval", name: /Approve in First Meridian app/, selected: "Approve in First Meridian app", instructions: "Enter the current six-digit code from your account for approval." },
+  { id: "app", testId: "mfa-method-app-approval", name: /Approve in First Meridian app/, selected: "Approve in First Meridian app", instructions: "Enter the current six-digit code from your account to verify your sign-in." },
 ] as const;
 
 beforeEach(() => {

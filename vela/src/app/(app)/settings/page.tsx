@@ -58,8 +58,8 @@ export default async function SettingsPage() {
             <div className="flex items-start gap-3">
               <Landmark className="mt-0.5 h-4 w-4 shrink-0 text-bank-navy" />
               <div>
-                <p className="text-[12px] font-semibold text-gray-900">Connect a bank with Plaid</p>
-                <p className="mt-1 text-[11px] text-gray-600">View linked institutions and manage the secure connection.</p>
+                <p className="text-[12px] font-semibold text-gray-900">Connect an external bank account</p>
+                <p className="mt-1 text-[11px] text-gray-600">View connected accounts and manage transfer destinations.</p>
                 <Link href="/linked-accounts" className="mt-2 inline-block text-[11px] font-semibold text-bank-link underline underline-offset-2">Manage linked accounts &gt;</Link>
               </div>
             </div>

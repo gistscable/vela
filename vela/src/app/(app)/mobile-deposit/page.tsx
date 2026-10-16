@@ -19,7 +19,7 @@ export default async function MobileDepositPage() {
     <div>
       <PageHeader
         title="Mobile deposit"
-        subtitle="Review the details and submit a check deposit request for approval."
+        subtitle="Review the details and submit a mobile check deposit."
         actions={<Link href="/transfer?tab=deposit" className="text-[11.5px] font-semibold text-bank-link underline underline-offset-2">Add funds from bank</Link>}
       />
       <div className="mx-auto max-w-[760px]">

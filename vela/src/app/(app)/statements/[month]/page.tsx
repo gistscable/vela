@@ -4,11 +4,18 @@ import { ArrowLeft } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { getStatementsData } from "@/lib/queries";
 import { formatDate, formatCents, maskAccountNumber } from "@/lib/money";
-import { safeCounterparty, safeTransactionDescription } from "@/lib/external-account-display";
+import { isAdminCreditReference, safeCounterparty, safeTransactionDescription } from "@/lib/external-account-display";
 import { PrintButton } from "@/components/PrintButton";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Statement — First Meridian Bank" };
+
+function statementStatusLabel(status: string) {
+  if (status === "PENDING_APPROVAL" || status === "PROCESSING_APPROVAL") return "Processing · not posted";
+  if (status === "REJECTED") return "Not completed · not posted";
+  if (status === "FAILED") return "Failed · not posted";
+  return "Pending · not posted";
+}
 
 export default async function StatementPage({
   params,
@@ -113,8 +120,8 @@ export default async function StatementPage({
                   </td>
                   <td className="py-2 pr-3">
                     <p className="font-semibold text-gray-900">{safeTransactionDescription(t.description)}</p>
-                    {t.counterparty && <p className="text-[10px] text-gray-500">{safeCounterparty(t.counterparty)}</p>}
-                    {t.status !== "COMPLETED" && <p className="text-[10px] font-semibold text-amber-800">{t.status === "PENDING_APPROVAL" ? "Awaiting approval · not posted" : t.status === "REJECTED" ? "Rejected · not posted" : t.status.toLowerCase().replaceAll("_", " ")}</p>}
+                    {!isAdminCreditReference(t.reference) && t.counterparty && <p className="text-[10px] text-gray-500">{safeCounterparty(t.counterparty)}</p>}
+                    {t.status !== "COMPLETED" && <p className="text-[10px] font-semibold text-amber-800">{statementStatusLabel(t.status)}</p>}
                   </td>
                   <td className="hidden py-2 pr-3 text-gray-600 sm:table-cell">{t.category}</td>
                   <td

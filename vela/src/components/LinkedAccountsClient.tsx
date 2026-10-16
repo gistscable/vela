@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { usePlaidLink, type PlaidLinkOnSuccessMetadata } from "react-plaid-link";
-import { Building2, CheckCircle2, ExternalLink, LockKeyhole, Plus, ShieldCheck } from "lucide-react";
+import { Building2, CheckCircle2, Plus, ShieldCheck } from "lucide-react";
 import { addExternalAccountAction, verifyExternalAccountAction, type ActionState } from "@/lib/actions";
 import { lastFourDigits, safeExternalNickname, safeInstitutionName } from "@/lib/external-account-display";
 import { formatDateTime } from "@/lib/money";
@@ -49,7 +49,7 @@ export function LinkedAccountsClient({
     token,
     onSuccess: async (publicToken: string | null, metadata: PlaidLinkOnSuccessMetadata) => {
       if (!publicToken) {
-        setError("Plaid did not return a public token. Please try again.");
+        setError("We couldn't complete the bank connection. Please try again.");
         return;
       }
       setWorking(true);
@@ -76,7 +76,7 @@ export function LinkedAccountsClient({
       }
     },
     onExit: (linkError) => {
-      if (linkError?.display_message) setError(linkError.display_message);
+      if (linkError) setError("Bank connection could not be completed. Please try again.");
     },
   });
 
@@ -98,7 +98,7 @@ export function LinkedAccountsClient({
       setToken(result.link_token);
       setLaunchRequested(true);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not start secure bank linking.");
+      setError("We couldn't start the bank connection. Please try again later.");
       setWorking(false);
     }
   }
@@ -114,53 +114,24 @@ export function LinkedAccountsClient({
 
       <ExternalDestinationForm sharedPreview={sharedPreview} />
 
-      <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-        <Panel title="Secure bank linking (Plaid)" bodyClassName="p-5">
+      {configured && !sharedPreview && (
+        <Panel title="Connect a bank" bodyClassName="p-5">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center border border-bank-sand bg-bank-sand text-bank-navy"><Building2 className="h-5 w-5" /></div>
             <div>
-              <h2 className="text-[13px] font-bold text-gray-900">Link with Plaid{configured ? "" : " · not configured"}</h2>
-              <p className="mt-1 text-[11.5px] leading-relaxed text-gray-600">Use Plaid Link to securely identify an external bank and its accounts. Credentials stay with Plaid; only the encrypted access token and masked account details are stored here.</p>
+              <h2 className="text-[13px] font-bold text-gray-900">Secure bank connection</h2>
+              <p className="mt-1 text-[11.5px] leading-relaxed text-gray-600">Connect a financial institution to identify external accounts for transfers. Your sign-in details are not stored here.</p>
             </div>
           </div>
           <div className="mt-5">
-            {sharedPreview ? (
-              <div className="border-l-4 border-bank-red bg-gray-50 p-3 text-[11px] leading-relaxed text-gray-600">
-                Bank linking is unavailable for this shared account. You can still add an external account below.
-              </div>
-            ) : configured ? (
-              <Button type="button" variant="navy" size="lg" loading={working} onClick={connectBank} disabled={!ready && Boolean(token)} className="w-full sm:w-auto">
-                <Plus className="h-4 w-4" /> Connect a bank
-              </Button>
-            ) : (
-              <Button type="button" variant="navy" size="lg" disabled className="w-full sm:w-auto">
-                <Plus className="h-4 w-4" /> Connect a bank
-              </Button>
-            )}
+            <Button type="button" variant="navy" size="lg" loading={working} onClick={connectBank} disabled={!ready && Boolean(token)} className="w-full sm:w-auto">
+              <Plus className="h-4 w-4" /> Connect a bank
+            </Button>
           </div>
-          {!sharedPreview && !configured && (
-            <div className="mt-4 border-l-4 border-bank-red bg-gray-50 p-3 text-[11px] leading-relaxed text-gray-600">
-              Configure <code>PLAID_CLIENT_ID</code>, <code>PLAID_SECRET</code>, <code>PLAID_ENV</code> and <code>APP_ENCRYPTION_KEY</code> in the server environment to enable Plaid.
-            </div>
-          )}
         </Panel>
+      )}
 
-        <div className="space-y-4">
-          <div className="border border-blue-200 bg-blue-50 p-4">
-            <h3 className="flex items-center gap-2 text-[12.5px] font-bold text-bank-navy"><ShieldCheck className="h-4 w-4" /> What linking does</h3>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-gray-700">Plaid linking is for account identification and verification. A Stripe ACH checkout is a separate flow and does not use a Plaid token.</p>
-          </div>
-          <div className="border border-gray-200 bg-gray-50 p-4 text-[11px] leading-relaxed text-gray-600">
-            <p className="flex items-center gap-2 font-bold text-gray-800"><LockKeyhole className="h-3.5 w-3.5" /> Security notes</p>
-            <ul className="mt-2 list-disc space-y-1 pl-4">
-              <li>Provider tokens are encrypted at rest with AES-256-GCM.</li>
-              <li>Never paste secrets into the browser.</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      <Panel title="Saved external accounts" bodyClassName="p-0">
+      <Panel title="Saved transfer destinations" bodyClassName="p-0">
         {externalAccounts.length === 0 ? (
           <div className="px-5 py-7 text-center">
             <Building2 className="mx-auto h-6 w-6 text-gray-400" />
@@ -176,12 +147,12 @@ export function LinkedAccountsClient({
         )}
       </Panel>
 
-      <Panel title="Connected financial institutions" bodyClassName="p-0">
+      <Panel title="Connected bank accounts" bodyClassName="p-0">
         {banks.length === 0 ? (
           <div className="px-5 py-8 text-center">
             <Building2 className="mx-auto h-6 w-6 text-gray-400" />
             <p className="mt-2 text-[12px] font-semibold text-gray-700">No external accounts linked</p>
-            <p className="mt-1 text-[11px] text-gray-500">When you link a bank, its masked accounts will appear here.</p>
+            <p className="mt-1 text-[11px] text-gray-500">Connected accounts will appear here.</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
@@ -208,8 +179,6 @@ export function LinkedAccountsClient({
           </div>
         )}
       </Panel>
-
-      <p className="flex items-center gap-1 text-[10px] text-gray-500"><ExternalLink className="h-3 w-3" /> Review Plaid's end-user terms and required disclosures.</p>
     </div>
   );
 }
@@ -219,10 +188,10 @@ function ExternalAccountCard({ account }: { account: ExternalAccountView }) {
   const label = account.status === "VERIFIED"
     ? "Verified"
     : account.status === "CHALLENGE_ACTIVE"
-      ? "Verification amounts requested"
+      ? "Verification in progress"
       : account.status === "REJECTED"
-        ? "Rejected"
-        : "Awaiting admin review";
+        ? "Unavailable"
+        : "Processing";
   const badgeClass = account.status === "VERIFIED"
     ? "border-emerald-200 bg-emerald-50 text-emerald-800"
     : account.status === "CHALLENGE_ACTIVE"
@@ -246,18 +215,18 @@ function ExternalAccountCard({ account }: { account: ExternalAccountView }) {
       </div>
 
       {account.status === "PENDING_APPROVAL" && (
-        <p className="mt-3 text-[11px] leading-relaxed text-gray-600">This destination is waiting for admin review. It cannot be selected for a transfer yet.</p>
+        <p className="mt-3 text-[11px] leading-relaxed text-gray-600">This destination is being processed and cannot be selected for a transfer yet.</p>
       )}
       {account.status === "REJECTED" && (
-        <p className="mt-3 text-[11px] leading-relaxed text-gray-600">This destination was rejected and cannot be used. Contact support if you think this is an error.</p>
+        <p className="mt-3 text-[11px] leading-relaxed text-gray-600">This destination is unavailable and cannot be used. Contact support if you think this is an error.</p>
       )}
       {account.status === "VERIFIED" && (
-        <p className="mt-3 text-[11px] leading-relaxed text-gray-600">Verification is complete. Transfer requests to this destination still require approval.</p>
+        <p className="mt-3 text-[11px] leading-relaxed text-gray-600">Verification is complete. This destination is ready to use for transfers.</p>
       )}
       {account.status === "CHALLENGE_ACTIVE" && (
         <div className="mt-3 space-y-3 border border-blue-200 bg-blue-50 p-3">
           <p className="text-[10.5px] leading-relaxed text-blue-950">
-            Enter the two amounts shared with you by the administrator.
+            Enter the two small deposit amounts associated with this account.
             {account.microdepositExpiresAt ? ` Expires ${formatDateTime(account.microdepositExpiresAt)}.` : ""}
           </p>
           {state?.error && <Alert tone="error" title="Could not verify destination">{state.error}</Alert>}

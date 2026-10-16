@@ -196,7 +196,7 @@ function AuthenticatorStep({ method, contact, onBack }: { method: MfaMethod; con
   const verificationInstructions =
     method === "sms" ? "Enter the six-digit code from your phone to verify."
       : method === "email" ? "Enter the six-digit code from your email to verify."
-        : method === "app" ? "Enter the current six-digit code from your account for approval."
+        : method === "app" ? "Enter the current six-digit code from your account to verify your sign-in."
           : "Enter the current six-digit code from Authenticator for your account.";
 
   return (

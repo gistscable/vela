@@ -17,13 +17,16 @@ const NOTICES: Record<string, { tone: "success" | "error" | "info" | "warn"; tit
   insufficient: { tone: "error", title: "Approval not posted", body: "The sending account no longer has enough available funds." },
   account: { tone: "error", title: "Account unavailable", body: "One of the accounts is closed or inactive. The entry remains unposted." },
   error: { tone: "error", title: "Could not approve transaction", body: "No balance change was made. Please review the item and try again." },
-  "credit-error": { tone: "error", title: "Credit not recorded", body: "Check the selected account, method, amount, source and last four digits." },
-  "credit-confirm": { tone: "error", title: "Confirmation required", body: "Confirm the destination and amount before recording a credit." },
-  "credit-submitted": { tone: "success", title: "Credit submitted for approval", body: "The selected account will be updated only after this item is approved." },
+  "credit-error": { tone: "error", title: "Payment not recorded", body: "Check the recipient, sender, method, amount, activity date and optional source details." },
+  "credit-confirm": { tone: "error", title: "Confirmation required", body: "Confirm the sender, destination and amount before submitting this payment." },
+  "credit-submitted": { tone: "success", title: "Payment submitted for approval", body: "The selected recipient account or accounts will be updated only after approval." },
   "challenge-issued": { tone: "success", title: "Verification challenge started", body: "Share the displayed amounts with the customer through a separate trusted channel." },
   "external-rejected": { tone: "info", title: "External account rejected", body: "The destination cannot be used. No funds were moved." },
   "external-unavailable": { tone: "info", title: "External account already reviewed", body: "That destination is no longer waiting for review." },
-  "enrollment-approved": { tone: "success", title: "Enrollment approved", body: "The applicant can now sign in with their email and passcode." },
+  "enrollment-approved": { tone: "success", title: "Enrollment approved", body: "The applicant can now sign in without the generated history; their accounts keep their current balances." },
+  "enrollment-approved-history": { tone: "success", title: "Enrollment approved with history", body: "The applicant can now sign in. The generated Jan 2023–Oct 2026 activity has been provisioned." },
+  "enrollment-history-error": { tone: "error", title: "History could not be added", body: "Enrollment was approved, but the generated activity could not be provisioned. Review the new account before proceeding." },
+  "enrollment-history-choice": { tone: "warn", title: "Choose an account history option", body: "Select whether to include the generated Jan 2023–Oct 2026 history before approving this enrollment." },
   "enrollment-rejected": { tone: "info", title: "Enrollment rejected", body: "The applicant cannot sign in. Any opening-funds request was also rejected without changing balances." },
   "enrollment-unavailable": { tone: "info", title: "Enrollment already reviewed", body: "That application is no longer awaiting a decision." },
   "enrollment-pending": { tone: "warn", title: "Approve enrollment first", body: "The customer cannot use the account until their enrollment is approved." },
@@ -35,15 +38,15 @@ const NOTICES: Record<string, { tone: "success" | "error" | "info" | "warn"; tit
 export default async function AdminPage({ searchParams }: { searchParams: Promise<{ notice?: string }> }) {
   const admin = await requireAdmin();
   const params = await searchParams;
+  const today = new Date().toISOString().slice(0, 10);
   const [pendingRows, accounts, externalAccounts, enrollmentApplications, authenticatorUsers] = await Promise.all([
     db.transaction.findMany({
       where: { status: "PENDING_APPROVAL" },
       include: { account: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } } } },
       orderBy: { createdAt: "asc" },
-      take: 200,
     }),
     db.account.findMany({
-      where: { status: "ACTIVE", user: { enrollmentStatus: "APPROVED" } },
+      where: { status: "ACTIVE", user: { role: "CUSTOMER", enrollmentStatus: "APPROVED" } },
       include: { user: { select: { firstName: true, lastName: true } } },
       orderBy: [{ user: { lastName: "asc" } }, { name: "asc" }],
     }),
@@ -105,11 +108,18 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                   </div>
                   <span className="border border-amber-300 bg-amber-50 px-2 py-1 text-[9px] font-bold uppercase text-amber-900">Awaiting enrollment approval</span>
                 </div>
-                <p className="mt-2 text-[10.5px] leading-relaxed text-gray-600">Approving allows the applicant to sign in. Any opening-funds request still needs separate approval.</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <form action={reviewEnrollmentAction}>
+                <p className="mt-2 text-[10.5px] leading-relaxed text-gray-600">Choose whether to add generated account activity from Jan 2023 through Oct 2026. If you omit it, a new signup keeps its current balance ($0 before any separately approved funding). Any opening-funds request still needs separate approval.</p>
+                <div className="mt-3 flex flex-wrap items-end gap-2">
+                  <form action={reviewEnrollmentAction} className="flex flex-wrap items-end gap-2">
                     <input type="hidden" name="userId" value={applicant.id} />
                     <input type="hidden" name="decision" value="approve" />
+                    <div className="min-w-[260px]">
+                      <Select name="historyChoice" label="Starting account history" defaultValue="" required>
+                        <option value="" disabled>Choose an option</option>
+                        <option value="include">Include generated history · Jan 2023–Oct 2026</option>
+                        <option value="none">No generated history · keep current balance</option>
+                      </Select>
+                    </div>
                     <Button type="submit" variant="navy" size="sm">Approve enrollment</Button>
                   </form>
                   <form action={reviewEnrollmentAction}>
@@ -165,6 +175,8 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
               {queue.map((group) => {
                 const primary = group.rows[0];
                 const method = paymentMethodLabel(primary.paymentMethod);
+                const isAdminPayment = primary.reference?.startsWith("adminach_") || primary.reference?.startsWith("adminwire_");
+                const dateLabel = isAdminPayment ? "Activity date" : "Submitted";
                 return (
                   <article key={group.key} data-testid="approval-group" data-group-key={group.key} className="px-4 py-4 sm:px-5">
                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -174,7 +186,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                           {safeTransactionDescription(primary.description)}
                           {method && <span className="rounded-sm border border-gray-300 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-gray-600">{method}</span>}
                         </p>
-                        <p className="mt-1 text-[10.5px] text-gray-500">Submitted {formatDateTime(group.createdAt)} · {group.rows.length === 1 ? "1 account entry" : `${group.rows.length} linked account entries`}</p>
+                        <p className="mt-1 text-[10.5px] text-gray-500">{dateLabel} {formatDateTime(group.createdAt)} · {group.rows.length === 1 ? "1 account entry" : `${group.rows.length} linked account entries`}</p>
                       </div>
                       <span className="shrink-0 border border-amber-300 bg-amber-50 px-2 py-1 text-[9.5px] font-bold uppercase text-amber-900">Awaiting approval</span>
                     </div>
@@ -208,34 +220,37 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           )}
         </Panel>
 
-        <Panel title="Record incoming funds" bodyClassName="p-5">
+        <Panel title="Send a payment to customer(s)" bodyClassName="p-5">
           <div className="mb-4 border-l-4 border-bank-red bg-gray-50 px-3 py-2.5 text-[11px] leading-relaxed text-gray-600">
-            This submits a manual credit for approval. The balance changes only after approval. Record only funds that have been independently confirmed.
+            Record a confirmed payment from an individual or organization. Choose one customer account or all approved customers’ active checking accounts; the amount applies to each recipient. Balance changes still require approval.
           </div>
           {accounts.length === 0 ? (
             <p className="text-[12px] text-gray-500">There are no active customer accounts to credit.</p>
           ) : (
             <form action={adminCreditAction} className="space-y-3">
-              <Select name="accountId" label="Credit account" defaultValue="" required>
+              <Select name="recipient" label="Recipient" defaultValue="" required>
                 <option value="" disabled>Select a customer account</option>
+                <option value="ALL_CUSTOMERS">All approved customers · checking accounts</option>
                 {accounts.map((account) => (
                   <option key={account.id} value={account.id}>
                     {account.user.firstName} {account.user.lastName} — {account.name}
                   </option>
                 ))}
               </Select>
-              <Select name="paymentMethod" label="Incoming method" defaultValue="ACH" required>
+              <Select name="paymentMethod" label="Payment method" defaultValue="ACH" required>
                 <option value="ACH">ACH</option>
                 <option value="WIRE">Wire</option>
               </Select>
-              <Input name="sourceName" label="Source bank or institution" placeholder="Example Credit Union" autoComplete="off" required maxLength={80} />
-              <Input name="sourceLast4" label="Source account last four digits" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} placeholder="4321" autoComplete="off" required />
-              <Input name="amount" label="Credit amount" inputMode="decimal" placeholder="$0.00" required />
+              <Input name="senderName" label="Payment from · individual or organization" placeholder="Jordan Lee or Acme Foundation" autoComplete="off" required maxLength={65} />
+              <Input name="sourceName" label="Source bank or institution (optional)" placeholder="Example Credit Union" autoComplete="off" maxLength={80} />
+              <Input name="sourceLast4" label="Source account last four digits (optional)" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} placeholder="4321" autoComplete="off" />
+              <Input name="amount" label="Amount per recipient" inputMode="decimal" placeholder="$0.00" required />
+              <Input name="activityDate" label="Date shown in account activity" type="date" defaultValue={today} hint="This calendar date is used in the customer's transaction history." required />
               <label className="flex items-start gap-2 text-[10.5px] leading-relaxed text-gray-600">
                 <input type="checkbox" name="confirm" value="yes" required className="mt-0.5" />
                 I independently confirmed these funds and details. This request still needs approval.
               </label>
-              <Button type="submit" variant="navy" className="w-full">Submit credit for approval</Button>
+              <Button type="submit" variant="navy" className="w-full">Submit payment for approval</Button>
             </form>
           )}
         </Panel>
@@ -291,7 +306,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       </Panel>
 
       <div className="border border-gray-200 bg-white px-4 py-3 text-[10.5px] leading-relaxed text-gray-500">
-        All balance-changing requests, including admin-entered credits, remain unposted until approved. Linked entries are approved or rejected together so account balances stay in step. The shared customer account cannot access this page.
+        All balance-changing requests, including admin-entered customer payments, remain unposted until approved. Payments to multiple customers are grouped so the batch is approved or rejected together. The shared customer account cannot access this page.
       </div>
     </div>
   );

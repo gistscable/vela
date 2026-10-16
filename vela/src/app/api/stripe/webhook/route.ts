@@ -9,7 +9,7 @@ export async function POST(request: Request) {
   const stripe = await getStripeClient();
   const signingSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!stripe || !signingSecret) {
-    return NextResponse.json({ error: "Stripe test webhook is not configured." }, { status: 503 });
+    return NextResponse.json({ error: "Service temporarily unavailable." }, { status: 503 });
   }
 
   const signature = request.headers.get("stripe-signature");

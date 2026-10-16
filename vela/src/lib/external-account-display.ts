@@ -19,6 +19,11 @@ export function safeInstitutionName(value: string | null | undefined): string {
   return clean(value, "External bank");
 }
 
+/** A human-entered payment originator shown as the transaction description. */
+export function safeSenderName(value: string | null | undefined): string {
+  return clean(value, "Unknown sender", 65);
+}
+
 export function safeExternalNickname(value: string | null | undefined, accountType?: string | null): string {
   return clean(value, accountType === "SAVINGS" ? "External savings" : "External checking");
 }
@@ -30,6 +35,10 @@ export function safeCounterparty(value: string | null | undefined): string | nul
 
 export function safeTransactionDescription(value: string | null | undefined): string {
   return clean(value, "Account activity", 90);
+}
+
+export function isAdminCreditReference(reference: string | null | undefined): boolean {
+  return /^admin(?:ach|wire)_/i.test(String(reference ?? ""));
 }
 
 const METHOD_LABELS: Record<string, string> = {

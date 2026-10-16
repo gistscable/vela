@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { containsLongAccountLikeNumber, lastFourDigits, safeInstitutionName } from "@/lib/external-account-display";
+import { containsLongAccountLikeNumber, lastFourDigits, safeInstitutionName, safeSenderName } from "@/lib/external-account-display";
 import { parseCents } from "@/lib/money";
 import { ensureUserHistory } from "@/lib/history";
 
@@ -199,7 +199,11 @@ export async function reviewEnrollmentAction(formData: FormData) {
   const admin = await requireAdmin();
   const userId = String(formData.get("userId") ?? "").trim();
   const decision = String(formData.get("decision") ?? "");
+  const historyChoice = String(formData.get("historyChoice") ?? "");
   if (!userId || !["approve", "reject"].includes(decision)) redirect("/admin?notice=enrollment-unavailable");
+  if (decision === "approve" && !["include", "none"].includes(historyChoice)) {
+    redirect("/admin?notice=enrollment-history-choice");
+  }
 
   const where = { id: userId, role: "CUSTOMER", enrollmentStatus: "PENDING_APPROVAL" };
   const now = new Date();
@@ -209,17 +213,21 @@ export async function reviewEnrollmentAction(formData: FormData) {
       data: { enrollmentStatus: "APPROVED", enrollmentReviewedById: admin.id, enrollmentReviewedAt: now },
     });
     if (result.count !== 1) redirect("/admin?notice=enrollment-unavailable");
-    // Future users automatically receive the standard Jan 2023 -> Oct 2026
-    // history (and Checking/Savings accounts if signup did not create them).
-    // ensureUserHistory is a no-op once a user has completed activity, so
-    // this never overwrites a customer's real transactions.
-    try {
-      await ensureUserHistory(db, userId);
-    } catch (error) {
-      console.error("Failed to provision account history for approved user", userId, error);
+    let historyProvisioningFailed = false;
+    if (historyChoice === "include") {
+      // The admin can opt this enrollment into the standard Jan 2023 -> Oct 2026
+      // activity. ensureUserHistory is a no-op once a user has completed activity,
+      // so existing customer transactions are never overwritten.
+      try {
+        await ensureUserHistory(db, userId);
+      } catch (error) {
+        historyProvisioningFailed = true;
+        console.error("Failed to provision account history for approved user", userId, error);
+      }
     }
     refreshApprovalViews();
-    redirect("/admin?notice=enrollment-approved");
+    if (historyProvisioningFailed) redirect("/admin?notice=enrollment-history-error");
+    redirect(historyChoice === "include" ? "/admin?notice=enrollment-approved-history" : "/admin?notice=enrollment-approved");
   }
 
   const rejected = await db.$transaction(async (tx) => {
@@ -265,44 +273,92 @@ export async function adminResetAuthenticatorAction(formData: FormData) {
   redirect("/admin?notice=authenticator-reset");
 }
 
+function parseActivityDate(value: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T12:00:00.000Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) return null;
+  return date;
+}
+
+const ALL_CUSTOMERS = "ALL_CUSTOMERS";
+
 export async function adminCreditAction(formData: FormData) {
-  const admin = await requireAdmin();
+  await requireAdmin();
   const parsed = z.object({
-    accountId: z.string().min(1).max(100),
+    recipient: z.string().min(1).max(100),
     paymentMethod: z.enum(["ACH", "WIRE"]),
-    sourceName: z.string().trim().min(2).max(80).refine((value) => !containsLongAccountLikeNumber(value)),
-    sourceLast4: z.string().regex(/^\d{4}$/),
+    senderName: z.string().trim().min(2).max(65).refine((value) => !containsLongAccountLikeNumber(value)),
+    sourceName: z.string().trim().max(80).refine((value) => !value || !containsLongAccountLikeNumber(value)),
+    sourceLast4: z.string().trim().max(4).refine((value) => !value || /^\d{4}$/.test(value)),
     amountText: z.string().trim().min(1).max(24),
+    activityDateText: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   }).safeParse({
-    accountId: formData.get("accountId"),
+    recipient: formData.get("recipient"),
     paymentMethod: formData.get("paymentMethod"),
+    senderName: formData.get("senderName"),
     sourceName: formData.get("sourceName"),
     sourceLast4: formData.get("sourceLast4"),
     amountText: formData.get("amount"),
+    activityDateText: formData.get("activityDate"),
   });
   if (!parsed.success) redirect("/admin?notice=credit-error");
   if (formData.get("confirm") !== "yes") redirect("/admin?notice=credit-confirm");
 
   const amount = parseCents(parsed.data.amountText);
-  if (!amount || amount < 100 || amount > 10_000_000) redirect("/admin?notice=credit-error");
-  const account = await db.account.findFirst({
-    where: { id: parsed.data.accountId, status: "ACTIVE", user: { enrollmentStatus: "APPROVED" } },
-  });
-  if (!account) redirect("/admin?notice=account");
+  const activityDate = parseActivityDate(parsed.data.activityDateText);
+  if (!amount || amount < 100 || amount > 10_000_000 || !activityDate) redirect("/admin?notice=credit-error");
 
+  let targetAccounts: { id: string }[];
+  if (parsed.data.recipient === ALL_CUSTOMERS) {
+    const checkingAccounts = await db.account.findMany({
+      where: {
+        type: "CHECKING",
+        status: "ACTIVE",
+        user: { role: "CUSTOMER", enrollmentStatus: "APPROVED" },
+      },
+      select: { id: true, userId: true },
+      orderBy: { createdAt: "asc" },
+    });
+    const firstCheckingByUser = new Map<string, { id: string }>();
+    for (const account of checkingAccounts) {
+      if (!firstCheckingByUser.has(account.userId)) firstCheckingByUser.set(account.userId, { id: account.id });
+    }
+    targetAccounts = [...firstCheckingByUser.values()];
+  } else {
+    targetAccounts = await db.account.findMany({
+      where: {
+        id: parsed.data.recipient,
+        status: "ACTIVE",
+        user: { role: "CUSTOMER", enrollmentStatus: "APPROVED" },
+      },
+      select: { id: true },
+      take: 1,
+    });
+  }
+  if (targetAccounts.length === 0) redirect("/admin?notice=account");
+
+  const senderName = safeSenderName(parsed.data.senderName);
+  const sourceName = parsed.data.sourceName ? safeInstitutionName(parsed.data.sourceName) : "";
+  const sourceLast4 = lastFourDigits(parsed.data.sourceLast4);
+  const counterparty = [sourceName || null, sourceLast4 ? `•••• ${sourceLast4}` : null]
+    .filter(Boolean)
+    .join(" · ") || null;
   const reference = randomRef(parsed.data.paymentMethod === "ACH" ? "adminach" : "adminwire");
-  await db.transaction.create({
-    data: {
-      accountId: account.id,
-      amount,
-      type: "DEPOSIT",
-      category: "TRANSFER",
-      description: "Admin credit request",
-      counterparty: `${safeInstitutionName(parsed.data.sourceName)} · •••• ${lastFourDigits(parsed.data.sourceLast4)}`,
-      paymentMethod: parsed.data.paymentMethod,
-      status: "PENDING_APPROVAL",
-      reference,
-    },
+  await db.$transaction(async (tx) => {
+    await tx.transaction.createMany({
+      data: targetAccounts.map(({ id }) => ({
+        accountId: id,
+        amount,
+        type: "DEPOSIT",
+        category: "TRANSFER",
+        description: senderName,
+        counterparty,
+        paymentMethod: parsed.data.paymentMethod,
+        status: "PENDING_APPROVAL",
+        reference,
+        createdAt: activityDate,
+      })),
+    });
   });
 
   refreshApprovalViews();

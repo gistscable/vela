@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatCents, formatDateTime, formatDate, maskAccountNumber } from "@/lib/money";
-import { paymentMethodLabel, safeCounterparty, safeTransactionDescription } from "@/lib/external-account-display";
+import { isAdminCreditReference, paymentMethodLabel, safeCounterparty, safeTransactionDescription } from "@/lib/external-account-display";
 import { PageHeader } from "@/components/transactions";
 import { PrintButton } from "@/components/PrintButton";
 import { Panel } from "@/components/ui";
@@ -55,13 +55,12 @@ export default async function TransactionReceiptPage({ params }: { params: Promi
   );
   const method = paymentMethodLabel(transaction.paymentMethod) ?? TYPE_LABELS[transaction.type] ?? "Account activity";
   const displayStatus =
-    transaction.status === "PENDING_APPROVAL" ? "Awaiting admin approval" :
-      transaction.status === "PROCESSING_APPROVAL" ? "Being reviewed" :
-        transaction.status === "REJECTED" ? "Rejected · not posted" :
-          transaction.status === "PENDING" ? "Pending" :
-            transaction.status === "FAILED" ? "Failed" : "Posted to account";
+    transaction.status === "PENDING_APPROVAL" || transaction.status === "PROCESSING_APPROVAL" ? "Processing" :
+      transaction.status === "REJECTED" ? "Not completed" :
+        transaction.status === "PENDING" ? "Pending" :
+          transaction.status === "FAILED" ? "Failed" : "Posted to account";
   const description = safeTransactionDescription(transaction.description);
-  const counterparty = safeCounterparty(transaction.counterparty);
+  const counterparty = isAdminCreditReference(transaction.reference) ? null : safeCounterparty(transaction.counterparty);
   const title = isExternalTransfer ? "External transfer receipt" : "Transaction receipt";
 
   return (
@@ -114,8 +113,8 @@ export default async function TransactionReceiptPage({ params }: { params: Promi
         {isExternalTransfer ? (
           <><strong className="text-gray-800">External transfer record.</strong> Review the status and details of this transfer above.</>
         ) : transaction.paymentMethod === "BILL_PAY" ? (
-          transaction.status === "PENDING_APPROVAL" ? (
-            <><strong className="text-gray-800">Approval required.</strong> The balance has not changed and the biller has not been paid.</>
+          transaction.status === "PENDING_APPROVAL" || transaction.status === "PROCESSING_APPROVAL" ? (
+            <><strong className="text-gray-800">Payment processing.</strong> The balance has not changed and the biller has not been paid.</>
           ) : (
             <><strong className="text-gray-800">Bill payment record.</strong> Review the status and details of this payment above.</>
           )
