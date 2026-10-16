@@ -15,9 +15,9 @@ import { buildMfaContactHints } from "@/lib/mfa-contact";
 const contact = buildMfaContactHints({ email: "alice.wonder@example.com", phone: "+1 (312) 555-0192" });
 
 const PATHS = [
-  { id: "sms", testId: "mfa-method-sms", name: /Text message to phone/, selected: "Text message to phone ending in 0192", unavailable: "This demo does not send text message codes." },
-  { id: "email", testId: "mfa-method-email", name: /Email code/, selected: "Email code to a•••@example.com", unavailable: "This demo does not send email codes." },
-  { id: "app", testId: "mfa-method-app-approval", name: /Approve in First Meridian app/, selected: "Approve in First Meridian app", unavailable: "This demo does not send app approval requests." },
+  { id: "sms", testId: "mfa-method-sms", name: /Text message to phone/, selected: "Text message to phone ending in 0192", instructions: "Enter the six-digit code from your phone to verify." },
+  { id: "email", testId: "mfa-method-email", name: /Email code/, selected: "Email code to a•••@example.com", instructions: "Enter the six-digit code from your email to verify." },
+  { id: "app", testId: "mfa-method-app-approval", name: /Approve in First Meridian app/, selected: "Approve in First Meridian app", instructions: "Enter the current six-digit code from your account for approval." },
 ] as const;
 
 beforeEach(() => {
@@ -61,8 +61,8 @@ describe("MFA method selection", () => {
       const notice = screen.getByTestId("mfa-verification-notice");
       expect(within(notice).getByText("Verification")).toBeInTheDocument();
       expect(within(notice).getByTestId("mfa-selected-destination")).toHaveTextContent(path.selected);
-      expect(notice).toHaveTextContent(path.unavailable);
-      expect(notice).toHaveTextContent("Enter the current six-digit code from Authenticator for your account.");
+      expect(notice).toHaveTextContent(path.instructions);
+      expect(notice).not.toHaveTextContent("This demo does not send");
       expect(notice).not.toHaveTextContent(/Google Authenticator|Authenticator verification|code (was|has been) sent/i);
 
       // The method list is gone, and choosing alone sent nothing to the server.
@@ -93,11 +93,11 @@ describe("MFA method selection", () => {
     expect(screen.getByTestId("mfa-sms-destination")).toHaveTextContent("No phone number registered");
     await user.click(screen.getByTestId("mfa-method-sms"));
     expect(screen.getByTestId("mfa-selected-destination")).toHaveTextContent("Text message to phone (No phone number registered)");
-    expect(screen.getByTestId("mfa-verification-notice")).toHaveTextContent("This demo does not send text message codes.");
+    expect(screen.getByTestId("mfa-verification-notice")).toHaveTextContent("Enter the six-digit code from your phone to verify.");
     await user.click(screen.getByTestId("mfa-back"));
     await user.click(screen.getByTestId("mfa-method-email"));
     expect(screen.getByTestId("mfa-selected-destination")).toHaveTextContent("Email code (No email address registered)");
-    expect(screen.getByTestId("mfa-verification-notice")).toHaveTextContent("This demo does not send email codes.");
+    expect(screen.getByTestId("mfa-verification-notice")).toHaveTextContent("Enter the six-digit code from your email to verify.");
   });
 
   it("the Authenticator app option uses the generic verification heading with Authenticator instructions", async () => {
