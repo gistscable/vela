@@ -73,23 +73,19 @@ function currentTotp(secret) {
   return String(value % 1_000_000).padStart(6, "0");
 }
 
+let mfaFinishCount = 0;
 async function finishAuthenticator(page, email) {
   await page.waitForURL((url) => url.pathname === "/mfa/setup" || url.pathname === "/mfa/verify", { timeout: 20000 });
   const mfaPath = new URL(page.url()).pathname;
   const hadFullSession = (await page.context().cookies(BASE)).some((cookie) => cookie.name === "fmb_session_v2");
   if (mfaPath === "/mfa/verify") {
-    const authenticatorOption = page.getByTestId("mfa-method-authenticator");
-    const unavailableIds = ["mfa-method-sms", "mfa-method-email", "mfa-method-app-approval"];
-    const optionsAreHonest =
-      await authenticatorOption.count() === 1
-      && await authenticatorOption.getByText("Available", { exact: true }).count() === 1
-      && (await Promise.all(unavailableIds.map(async (id) => {
-        const option = page.getByTestId(id);
-        return await option.count() === 1
-          && await option.getAttribute("aria-disabled") === "true"
-          && await option.getByText("Not enabled", { exact: true }).count() === 1;
-      }))).every(Boolean);
-    check("MFA method screen marks only the authenticator as available", optionsAreHonest);
+    const methodIds = ["mfa-method-authenticator", "mfa-method-sms", "mfa-method-email", "mfa-method-app-approval"];
+    const methodsSelectable = (await Promise.all(methodIds.map(async (id) => {
+      const option = page.getByTestId(id);
+      return await option.count() === 1 && await option.isEnabled() && await option.getAttribute("aria-disabled") === null;
+    }))).every(Boolean) && await page.getByText("Not enabled", { exact: true }).count() === 0;
+    check("MFA method screen offers all four methods as selectable buttons", methodsSelectable);
+    check("MFA screen shows no code form until a method is chosen", await page.locator('input[name="totpCode"]').count() === 0 && !(await page.context().cookies(BASE)).some((cookie) => cookie.name === "fmb_session_v2"));
     const contactUser = await db.user.findUnique({ where: { email }, select: { email: true, phone: true } });
     const digits = (contactUser?.phone ?? "").replace(/\D/g, "");
     const [localPart, domain] = (contactUser?.email ?? "@").split("@");
@@ -104,6 +100,33 @@ async function finishAuthenticator(page, email) {
     check(`MFA screen does not expose ${email}'s full contact details`, leaks.every((value) => !pageHtml.includes(value)));
     const screenText = await page.locator("main, body").first().innerText();
     check("MFA screen keeps the authenticator-continuation notice without implying a code was sent", screenText.includes("All options currently continue to authenticator verification") && !/code (was|has been) sent/i.test(screenText));
+
+    // Every selection opens the working authenticator form, says nothing was sent, and can go back.
+    const selectionPaths = [
+      { id: "mfa-method-sms", sent: "No text message was sent." },
+      { id: "mfa-method-email", sent: "No email was sent." },
+      { id: "mfa-method-app-approval", sent: "No request was sent to the First Meridian app." },
+    ];
+    let selectionPathsOk = true;
+    for (const path of selectionPaths) {
+      await page.getByTestId(path.id).click();
+      await page.getByLabel("Six-digit authenticator code").waitFor();
+      const noticeText = await page.getByTestId("mfa-temporary-notice").innerText();
+      selectionPathsOk &&= noticeText.includes("temporarily") && noticeText.includes(path.sent)
+        && await page.getByRole("button", { name: "Back to verification methods" }).isVisible()
+        && !(await page.context().cookies(BASE)).some((cookie) => cookie.name === "fmb_session_v2")
+        && new URL(page.url()).pathname === "/mfa/verify";
+      await page.getByRole("button", { name: "Back to verification methods" }).click();
+      await page.getByTestId("mfa-method-sms").waitFor();
+      selectionPathsOk &&= await page.locator('input[name="totpCode"]').count() === 0;
+    }
+    check("Each MFA selection opens the authenticator form with an honest notice, Back works, and selection alone never signs in", selectionPathsOk);
+    // Finish through a rotating method so each path also gets a real successful verification.
+    const finishingMethod = ["mfa-method-sms", "mfa-method-email", "mfa-method-app-approval", "mfa-method-authenticator"][mfaFinishCount++ % 4];
+    await page.getByTestId(finishingMethod).click();
+    await page.getByLabel("Six-digit authenticator code").waitFor();
+    const htmlAfterSelect = await page.content();
+    check(`MFA authenticator step still does not expose ${email}'s full contact details`, leaks.every((value) => !htmlAfterSelect.includes(value)));
   }
   let secret = authenticatorSecrets.get(email);
   if (mfaPath === "/mfa/setup") {

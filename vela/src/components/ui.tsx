@@ -59,6 +59,7 @@ type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   icon?: React.ReactNode;
   /** Control rendered inside the right edge of the field (e.g. a show/hide button). */
   trailing?: React.ReactNode;
+  ref?: React.Ref<HTMLInputElement>;
 };
 
 export function Input({ label, error, hint, icon, trailing, className = "", id, ...rest }: InputProps) {

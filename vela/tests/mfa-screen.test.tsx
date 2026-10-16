@@ -147,22 +147,28 @@ describe("MFA method-choice screen", () => {
     }
   });
 
-  it("does not claim a code was sent or that contacts are verified, and still routes to the authenticator", async () => {
+  it("does not claim a code was sent or that contacts are verified, and offers four selectable methods", async () => {
     const alice = await addUser(ALICE.email, ALICE.phone);
     await auth.setMfaChallengeCookie(alice.id, "verify");
     const { html } = await renderScreen();
     expect(html).toContain("All options currently continue to authenticator verification");
-    expect(html).toMatch(/no text code will be sent/);
-    expect(html).toMatch(/no email code will be sent/);
+    expect(html).toMatch(/no text will be sent/);
+    expect(html).toMatch(/no email will be sent/);
+    expect(html).toMatch(/no approval request will be sent/);
     expect(html).toContain("not verified");
     expect(html).not.toMatch(/code (was|has been|is being) sent/i);
     expect(html).not.toMatch(/(?<!not )(?<!un)verified (phone|email|contact)/i);
     expect(html).not.toMatch(/>\s*Verified\s*</);
-    // The only form on the screen verifies the authenticator code.
-    expect(html.match(/<form/g)).toHaveLength(1);
-    expect(html).toContain('name="totpCode"');
-    // Both alternative methods stay disabled with a "Not enabled" badge.
-    expect(html.match(/Not enabled/g)?.length).toBe(3);
+    // Nothing can be submitted until a method is chosen; the code form appears after selection
+    // (see mfa-method-selection.test.tsx).
+    expect(html).not.toContain("<form");
+    expect(html).not.toContain('name="totpCode"');
+    // Every method is a real, enabled button; none is a disabled "Not enabled" card.
+    for (const id of ["authenticator", "sms", "email", "app-approval"]) {
+      expect(html).toMatch(new RegExp(`<button[^>]*data-testid="mfa-method-${id}"`));
+    }
+    expect(html).not.toMatch(/aria-disabled/);
+    expect(html).not.toContain("Not enabled");
   });
 
   it("does not record anything about contact verification in the database", async () => {
