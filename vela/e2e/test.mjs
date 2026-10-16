@@ -73,23 +73,60 @@ function currentTotp(secret) {
   return String(value % 1_000_000).padStart(6, "0");
 }
 
+let mfaFinishCount = 0;
 async function finishAuthenticator(page, email) {
   await page.waitForURL((url) => url.pathname === "/mfa/setup" || url.pathname === "/mfa/verify", { timeout: 20000 });
   const mfaPath = new URL(page.url()).pathname;
   const hadFullSession = (await page.context().cookies(BASE)).some((cookie) => cookie.name === "fmb_session_v2");
   if (mfaPath === "/mfa/verify") {
-    const authenticatorOption = page.getByTestId("mfa-method-authenticator");
-    const unavailableIds = ["mfa-method-sms", "mfa-method-email", "mfa-method-app-approval"];
-    const optionsAreHonest =
-      await authenticatorOption.count() === 1
-      && await authenticatorOption.getByText("Available", { exact: true }).count() === 1
-      && (await Promise.all(unavailableIds.map(async (id) => {
-        const option = page.getByTestId(id);
-        return await option.count() === 1
-          && await option.getAttribute("aria-disabled") === "true"
-          && await option.getByText("Not enabled", { exact: true }).count() === 1;
-      }))).every(Boolean);
-    check("MFA method screen marks only the authenticator as available", optionsAreHonest);
+    const methodIds = ["mfa-method-authenticator", "mfa-method-sms", "mfa-method-email", "mfa-method-app-approval"];
+    const methodsSelectable = (await Promise.all(methodIds.map(async (id) => {
+      const option = page.getByTestId(id);
+      return await option.count() === 1 && await option.isEnabled() && await option.getAttribute("aria-disabled") === null;
+    }))).every(Boolean) && await page.getByText("Not enabled", { exact: true }).count() === 0;
+    check("MFA method screen offers all four methods as selectable buttons", methodsSelectable);
+    check("MFA screen shows no code form until a method is chosen", await page.locator('input[name="totpCode"]').count() === 0 && !(await page.context().cookies(BASE)).some((cookie) => cookie.name === "fmb_session_v2"));
+    const contactUser = await db.user.findUnique({ where: { email }, select: { email: true, phone: true } });
+    const digits = (contactUser?.phone ?? "").replace(/\D/g, "");
+    const [localPart, domain] = (contactUser?.email ?? "@").split("@");
+    const expectedMaskedEmail = `${localPart.length > 1 ? localPart[0] : ""}•••@${domain}`;
+    const smsText = await page.getByTestId("mfa-method-sms").innerText();
+    const emailText = await page.getByTestId("mfa-method-email").innerText();
+    const phoneOk = digits.length >= 8 ? smsText.includes(`Phone ending in ${digits.slice(-4)}`) : smsText.includes("No phone number registered");
+    check(`MFA screen shows ${email}'s own masked phone and email`, phoneOk && emailText.includes(expectedMaskedEmail) && !/last four digits/i.test(emailText));
+    // page.content() includes the serialized Next.js payload, so this also catches props leaking.
+    const pageHtml = await page.content();
+    const leaks = [contactUser?.email, contactUser?.phone, digits.length >= 8 ? digits : null].filter(Boolean);
+    check(`MFA screen does not expose ${email}'s full contact details`, leaks.every((value) => !pageHtml.includes(value)));
+    const screenText = await page.locator("main, body").first().innerText();
+    check("MFA screen keeps the authenticator-continuation notice without implying a code was sent", screenText.includes("All options currently continue to authenticator verification") && !/code (was|has been) sent/i.test(screenText));
+
+    // Every selection opens the working authenticator form, says nothing was sent, and can go back.
+    const selectionPaths = [
+      { id: "mfa-method-sms", sent: "No text message was sent." },
+      { id: "mfa-method-email", sent: "No email was sent." },
+      { id: "mfa-method-app-approval", sent: "No request was sent to the First Meridian app." },
+    ];
+    let selectionPathsOk = true;
+    for (const path of selectionPaths) {
+      await page.getByTestId(path.id).click();
+      await page.getByLabel("Six-digit authenticator code").waitFor();
+      const noticeText = await page.getByTestId("mfa-temporary-notice").innerText();
+      selectionPathsOk &&= noticeText.includes("temporarily") && noticeText.includes(path.sent)
+        && await page.getByRole("button", { name: "Back to verification methods" }).isVisible()
+        && !(await page.context().cookies(BASE)).some((cookie) => cookie.name === "fmb_session_v2")
+        && new URL(page.url()).pathname === "/mfa/verify";
+      await page.getByRole("button", { name: "Back to verification methods" }).click();
+      await page.getByTestId("mfa-method-sms").waitFor();
+      selectionPathsOk &&= await page.locator('input[name="totpCode"]').count() === 0;
+    }
+    check("Each MFA selection opens the authenticator form with an honest notice, Back works, and selection alone never signs in", selectionPathsOk);
+    // Finish through a rotating method so each path also gets a real successful verification.
+    const finishingMethod = ["mfa-method-sms", "mfa-method-email", "mfa-method-app-approval", "mfa-method-authenticator"][mfaFinishCount++ % 4];
+    await page.getByTestId(finishingMethod).click();
+    await page.getByLabel("Six-digit authenticator code").waitFor();
+    const htmlAfterSelect = await page.content();
+    check(`MFA authenticator step still does not expose ${email}'s full contact details`, leaks.every((value) => !htmlAfterSelect.includes(value)));
   }
   let secret = authenticatorSecrets.get(email);
   if (mfaPath === "/mfa/setup") {
@@ -128,13 +165,23 @@ async function main() {
   await page.getByText("Forgot your passcode?", { exact: true }).click();
   await page.getByText("Passcode reset is not available in this version.", { exact: true }).waitFor();
   check("Forgot-passcode control explains reset is unavailable", true);
-  await page.fill('input[name="email"]', "demo@vela.app");
+  const loginPassword = page.locator('input[name="password"]');
+  check("Login passcode is hidden by default", await loginPassword.getAttribute("type") === "password");
+  await loginPassword.fill("wrongpass");
+  const loginToggle = page.getByRole("button", { name: "Show password" });
+  await loginToggle.focus();
+  check("Password toggle shows a visible keyboard focus ring", (await loginToggle.evaluate((el) => getComputedStyle(el).boxShadow)) !== "none");
+  await page.keyboard.press("Enter");
+  check("Password toggle reveals the password without submitting or clearing it", await loginPassword.getAttribute("type") === "text" && await loginPassword.inputValue() === "wrongpass" && new URL(page.url()).pathname === "/login" && await page.getByRole("button", { name: "Hide password" }).count() === 1);
+  await page.getByRole("button", { name: "Hide password" }).click();
+  check("Password toggle hides it again", await loginPassword.getAttribute("type") === "password");
+  await page.fill('input[name="username"]', "demo@vela.app");
   await page.fill('input[name="password"]', "wrongpass");
   await page.click('button[type="submit"]');
-  await page.waitForSelector("text=Invalid email or password");
+  await page.waitForSelector("text=The User ID or passcode you entered is incorrect");
   check("Login rejects bad password with error", true);
 
-  await page.fill('input[name="email"]', "demo@vela.app");
+  await page.fill('input[name="username"]', "demo@vela.app");
   await page.fill('input[name="password"]', "demo1234");
   await page.click('button[type="submit"]');
   const firstMfa = await finishAuthenticator(page, "demo@vela.app");
@@ -281,7 +328,7 @@ async function main() {
 
   const marcusPage = await browser.newPage({ viewport: { width: 1280, height: 820 } });
   await marcusPage.goto(`${BASE}/login`, { waitUntil: "load" });
-  await marcusPage.fill('input[name="email"]', "marcus@example.com");
+  await marcusPage.fill('input[name="username"]', "marcus@example.com");
   await marcusPage.fill('input[name="password"]', "demo1234");
   await marcusPage.click('button[type="submit"]');
   const marcusMfa = await finishAuthenticator(marcusPage, "marcus@example.com");
@@ -358,7 +405,7 @@ async function main() {
   const adminPage = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   adminPage.setDefaultTimeout(20000);
   await adminPage.goto(`${BASE}/login`, { waitUntil: "load" });
-  await adminPage.fill('input[name="email"]', "e2e-admin@example.test");
+  await adminPage.fill('input[name="username"]', "e2e-admin@example.test");
   await adminPage.fill('input[name="password"]', "e2e-admin-pass-82");
   await adminPage.click('button[type="submit"]');
   const adminMfa = await finishAuthenticator(adminPage, "e2e-admin@example.test");
@@ -580,6 +627,23 @@ async function main() {
   check("Settings profile update works", true);
   await shot(page, "11-settings");
 
+  // Existing (pre-username) users keep email sign-in and choose a username themselves.
+  const demoBeforeUsername = await db.user.findUnique({ where: { email: "demo@vela.app" } });
+  check("Existing user starts without a username and was not given one silently", demoBeforeUsername?.username === null && demoBeforeUsername?.usernameNormalized === null);
+  await page.locator('input[name="username"]').fill("Demo.User");
+  await page.getByRole("button", { name: "Save username" }).click();
+  await page.getByText("Your Username / User ID is now Demo.User", { exact: false }).waitFor({ timeout: 20000 });
+  const demoAfterUsername = await db.user.findUnique({ where: { email: "demo@vela.app" } });
+  check("Existing user can choose a username; email and id are unchanged", demoAfterUsername?.username === "Demo.User" && demoAfterUsername.usernameNormalized === "demo.user" && demoAfterUsername.id === demoBeforeUsername?.id);
+
+  // Password-change fields: hidden by default, toggle reveals without clearing or submitting.
+  const currentPasscode = page.getByLabel("Current passcode");
+  await currentPasscode.fill("typed-not-submitted");
+  await page.getByRole("button", { name: "Show current password" }).click();
+  check("Settings password toggle reveals the typed value without submitting", await currentPasscode.getAttribute("type") === "text" && await currentPasscode.inputValue() === "typed-not-submitted" && await page.getByText("Your passcode has been changed").count() === 0);
+  await page.getByRole("button", { name: "Hide current password" }).click();
+  check("Settings password field is hidden again after Hide password", await currentPasscode.getAttribute("type") === "password");
+
   await page.goto(`${BASE}/linked-accounts`, { waitUntil: "load" });
   await page.waitForSelector("text=No external accounts linked");
   const plaidSetup = await page.locator("main").innerText();
@@ -592,7 +656,7 @@ async function main() {
   const cookiesAfterLogout = await page.context().cookies(BASE);
   check("Logout clears session, legacy, and MFA-challenge cookies", !cookiesAfterLogout.some((cookie) => cookie.name === "fmb_session_v2" || cookie.name === "fmb_session" || cookie.name === "fmb_mfa_pending"));
 
-  await page.fill('input[name="email"]', "demo@vela.app");
+  await page.fill('input[name="username"]', "DEMO.User");
   await page.fill('input[name="password"]', "demo1234");
   await page.click('button[type="submit"]');
   const repeatLoginMfa = await finishAuthenticator(page, "demo@vela.app");
@@ -610,8 +674,12 @@ async function main() {
   check("Enrollment does not collect SSN/TIN, email codes, or card PINs", safeEnrollmentFields);
   await page.fill('input[name="firstName"]', "Ada");
   await page.fill('input[name="lastName"]', "Okoye");
-  const adaEmail = `ada${Date.now()}@example.com`;
+  const adaStamp = Date.now();
+  const adaEmail = `ada${adaStamp}@example.com`;
+  const adaUsername = `Ada.Okoye${adaStamp}`;
+  await page.fill('input[name="username"]', adaUsername);
   await page.fill('input[name="email"]', adaEmail);
+  await page.fill('input[name="phone"]', "(312) 555-0147");
   await page.fill('input[name="password"]', "supersecret1");
   await page.fill('input[name="openingDeposit"]', "500");
   await page.click('button:has-text("Continue enrollment")');
@@ -622,10 +690,10 @@ async function main() {
   check("Pending enrollment page links back to sign in", await page.getByRole("link", { name: "Go to sign in" }).isVisible());
 
   await page.getByRole("link", { name: "Go to sign in" }).click();
-  await page.fill('input[name="email"]', adaEmail);
+  await page.fill('input[name="username"]', adaUsername.toLowerCase());
   await page.fill('input[name="password"]', "supersecret1");
   await page.click('button[type="submit"]');
-  await page.getByText("Your enrollment is awaiting admin approval", { exact: false }).waitFor();
+  await page.getByText("Your enrollment is still awaiting approval", { exact: false }).waitFor();
   check("Login refuses a pending enrollment", !(await page.context().cookies(BASE)).some((cookie) => cookie.name === "fmb_session_v2"));
 
   const pendingOpeningRequest = await db.transaction.findFirst({ where: { account: { user: { email: adaEmail } }, description: "Opening deposit", status: "PENDING_APPROVAL" } });
@@ -645,8 +713,9 @@ async function main() {
   await adminPage.waitForURL("**/admin?notice=enrollment-approved", { timeout: 20000 });
   const approvedAda = await db.user.findUnique({ where: { email: adaEmail } });
   check("Admin can approve enrollment and records who reviewed it", approvedAda?.enrollmentStatus === "APPROVED" && approvedAda.enrollmentReviewedById !== null && approvedAda.enrollmentReviewedAt instanceof Date);
+  check("Enrollment stored the username separately from the internal id", approvedAda?.username === adaUsername && approvedAda.usernameNormalized === adaUsername.toLowerCase() && approvedAda.id !== adaUsername);
 
-  await page.fill('input[name="email"]', adaEmail);
+  await page.fill('input[name="username"]', adaUsername.toUpperCase());
   await page.fill('input[name="password"]', "supersecret1");
   await page.click('button[type="submit"]');
   const adaMfa = await finishAuthenticator(page, adaEmail);
@@ -670,7 +739,7 @@ async function main() {
   check("Admin can reset a lost authenticator without enabling email/SMS fallback", adaAfterReset?.mfaEnabled === false && adaAfterReset.totpSecretEncrypted === null);
   await page.goto(`${BASE}/dashboard`, { waitUntil: "load" });
   await page.waitForURL("**/login", { timeout: 20000 });
-  await page.fill('input[name="email"]', adaEmail);
+  await page.fill('input[name="username"]', adaEmail);
   await page.fill('input[name="password"]', "supersecret1");
   await page.click('button[type="submit"]');
   const reEnrollMfa = await finishAuthenticator(page, adaEmail);

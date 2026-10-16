@@ -28,6 +28,13 @@ export default async function DashboardPage({
     <div>
       <Toast kind={toast} />
 
+      {!user.username && (
+        <p data-testid="username-prompt" className="mb-4 border-l-4 border-bank-blue bg-blue-50/60 px-3 py-2 text-[12px] leading-relaxed text-gray-700">
+          Choose a Username / User ID to sign in with. Your email keeps working in the meantime.{" "}
+          <Link href="/settings" className="font-semibold text-bank-link underline underline-offset-2">Choose one in Settings &gt;</Link>
+        </p>
+      )}
+
       {/* Page title */}
       <div className="mb-4 flex items-end justify-between md:mb-5">
         <div>

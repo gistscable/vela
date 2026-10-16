@@ -10,6 +10,11 @@ import { generateTotpSecret, verifyTotp } from "@/lib/totp";
 import { parseCents } from "@/lib/money";
 import { lastFourDigits } from "@/lib/external-account-display";
 import { ensureUserHistory } from "@/lib/history";
+import { claimUsername, findUserByLoginIdentifier, isUniqueViolation, isUsernameTaken, USERNAME_UNAVAILABLE_MESSAGE } from "@/lib/identity";
+import { validateUsername } from "@/lib/username";
+
+// Compared against when no user matches, so "unknown user" and "wrong passcode" take similar time.
+const DUMMY_PASSWORD_HASH = "$2a$10$uY4y1.VITBIwxsGJUvxHnO/WMzQTPQt4TC3yc53PawwiHIlwvyc36";
 
 export type ActionState = { error?: string; success?: boolean; message?: string } | null;
 
@@ -24,10 +29,13 @@ function refresh() {
 /* ---------------------------------- auth ---------------------------------- */
 
 export async function loginAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
-  const email = str(fd, "email").toLowerCase();
+  // "username" is the primary field; "email" is still accepted so existing clients and users
+  // who have not chosen a username yet keep working. Either way it is one generic error below.
+  const identifier = str(fd, "username") || str(fd, "email");
   const password = String(fd.get("password") ?? "");
-  const user = email ? await db.user.findUnique({ where: { email } }) : null;
-  if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+  const user = await findUserByLoginIdentifier(db, identifier);
+  const passwordOk = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
+  if (!user || !passwordOk) {
     return { error: "The User ID or passcode you entered is incorrect." };
   }
   if (user.enrollmentStatus === "PENDING_APPROVAL") return { error: "Your enrollment is still awaiting approval. You'll be able to sign in once it's approved." };
@@ -57,19 +65,33 @@ export async function signupAction(_prev: ActionState, fd: FormData): Promise<Ac
   const firstName = str(fd, "firstName");
   const lastName = str(fd, "lastName");
   if (!firstName || !lastName || !email) return { error: "Enter your name and email address." };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Enter a valid email address." };
+  const username = validateUsername(str(fd, "username"));
+  if (!username.ok) return { error: username.error };
   if (password.length < 8) return { error: "Your passcode must be at least 8 characters." };
   if (await db.user.findUnique({ where: { email } })) return { error: "An enrollment with this email already exists. Try signing in instead." };
+  if (await isUsernameTaken(db, username.normalized)) return { error: USERNAME_UNAVAILABLE_MESSAGE };
 
-  const user = await db.user.create({
-    data: {
-      email,
-      passwordHash: await bcrypt.hash(password, 10),
-      firstName,
-      lastName,
-      phone: str(fd, "phone") || null,
-      enrollmentStatus: "PENDING_APPROVAL",
-    },
-  });
+  let user;
+  try {
+    user = await db.user.create({
+      data: {
+        email,
+        username: username.username,
+        usernameNormalized: username.normalized,
+        passwordHash: await bcrypt.hash(password, 10),
+        firstName,
+        lastName,
+        phone: str(fd, "phone") || null,
+        enrollmentStatus: "PENDING_APPROVAL",
+      },
+    });
+  } catch (error) {
+    // The unique indexes are the source of truth if two enrollments race past the checks above.
+    if (!isUniqueViolation(error)) throw error;
+    if (await db.user.findUnique({ where: { email } })) return { error: "An enrollment with this email already exists. Try signing in instead." };
+    return { error: USERNAME_UNAVAILABLE_MESSAGE };
+  }
   // Standard accounts; the 2023-2026 history is provisioned on approval
   // (see reviewEnrollmentAction -> ensureUserHistory).
   const suffix = Math.floor(100000 + Math.random() * 899999);
@@ -359,6 +381,15 @@ export async function changePasswordAction(_prev: ActionState, fd: FormData): Pr
   await db.user.update({ where: { id: user.id }, data: { passwordHash: await bcrypt.hash(next, 10) } });
   refresh();
   return { success: true };
+}
+
+/** Existing users without a Username / User ID choose one here; it is never assigned for them. */
+export async function setUsernameAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const user = await requireUser();
+  const result = await claimUsername(db, user.id, str(fd, "username"));
+  if (!result.ok) return { error: result.error };
+  refresh();
+  return { success: true, message: `Your Username / User ID is now ${result.username}. You can sign in with it or your email.` };
 }
 
 /* ----------------------------- linked accounts ----------------------------- */

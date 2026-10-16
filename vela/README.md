@@ -12,8 +12,13 @@ A fictional, full-stack retail-banking prototype for internal product evaluation
 | Password | `demo1234` |
 | Quick Pay test recipient | `marcus@example.com` / `demo1234` |
 
+The sample users predate Username / User IDs, so they sign in with their email (the sign-in field accepts either). They can choose a username under **Settings → Sign-in & passcode**.
+
 ## Features
 
+- **Username / User ID** — enrollment requires a unique Username / User ID (3–32 letters, numbers, `.`, `_`, `-`; no `@`), validated on the server and unique case-insensitively. It is a login identifier stored separately from the internal database `User.id`, and is the primary sign-in field. Email sign-in keeps working. Existing users are never given a generated username or locked out: they keep signing in with email, see a prompt, and choose a username themselves in Settings (it can be set once there).
+- **Password visibility** — every password field (sign-in, enrollment, passcode change) is hidden by default and has a keyboard-accessible **Show password / Hide password** button that never submits the form or clears the value.
+- **Personalized MFA method screen** — the method-choice screen shows the signed-in challenge user's own registered destinations, masked on the server: `Phone ending in 1234` and `j•••@example.com`. They come from the user record tied to the signed MFA challenge cookie (never a URL parameter or client-supplied ID), and only masked values reach the page. A missing or too-short (< 8 digits) phone shows “No phone number registered”. Text message, Email code and Approve in First Meridian app are selectable, but each one opens the same six-digit authenticator form with a notice that authenticator verification is temporarily used and nothing was sent; a **Back to verification methods** button returns to the list. Selecting is client-side only and never signs anyone in — only the server-side authenticator check (signed challenge, lockout, replay protection) does. Registered does not mean verified: contacts are not marked verified.
 - **Authentication** — new enrollments wait for admin approval before sign-in; after approval, each user must set up one Google Authenticator-compatible TOTP app. TOTP secrets are encrypted, codes cannot be replayed, and no email/SMS login codes are used.
 - **Accounts** — demo checking and savings accounts, masked account identifiers, interest-rate display, balance history and transaction detail.
 - **Move money** — internal transfers and member-to-member Quick Pay use review/confirm steps and an atomic, balance-checked ledger. Members can also request money from one another; the recipient explicitly confirms payment from their own account.
@@ -52,7 +57,7 @@ Open `http://localhost:3000` and sign in using the credentials above. `db:setup`
 
 ## Supabase PostgreSQL (multi-user deployment)
 
-This repository keeps a local SQLite schema for the workspace preview and includes a matching PostgreSQL schema plus versioned migrations for Supabase. The migrations cover the base schema, transaction approvals, external-account verification, admin approval of new enrollments, and encrypted authenticator setup. Existing users remain approved; new signups wait for admin review and cannot sign in until approved. User records are scoped through `userId` relationships, and account, transaction and payee lookups have supporting indexes. The app uses its existing server-side authentication; it does not depend on Supabase Auth or expose database credentials in the browser.
+This repository keeps a local SQLite schema for the workspace preview and includes a matching PostgreSQL schema plus versioned migrations for Supabase. The migrations cover the base schema, transaction approvals, external-account verification, admin approval of new enrollments, encrypted authenticator setup, and a repair guard for fresh databases (`20261015015000_ensure_external_account_table`), and the Username / User ID login identifier (`20261016000000_username_login`: nullable `username` + `usernameNormalized` with a unique index and a CHECK keeping them consistent; existing rows are left as-is). Existing users remain approved; new signups wait for admin review and cannot sign in until approved. User records are scoped through `userId` relationships, and account, transaction and payee lookups have supporting indexes. The app uses its existing server-side authentication; it does not depend on Supabase Auth or expose database credentials in the browser.
 
 1. Create a Supabase project and copy its connection strings from the project's **Connect** panel. Prefer a dedicated database role for Prisma rather than the dashboard's owner credential.
 2. In the deployment's **build and runtime** secret settings, set `DATABASE_PROVIDER=postgresql` and add `DATABASE_URL` and `DIRECT_URL`. Use Supavisor transaction mode for app requests in serverless/auto-scaling hosts (port `6543`; include `pgbouncer=true`, and `connection_limit=1` where appropriate). Use Supavisor session mode (port `5432`) or a supported direct connection for `DIRECT_URL` and migrations. Keep both passwords out of source control.
@@ -67,6 +72,8 @@ This repository keeps a local SQLite schema for the workspace preview and includ
 4. Do **not** run the sample seed against a production database. New customers register through the app. The included migration creates empty tables; it does not copy existing SQLite rows.
 
 The active preview remains on SQLite until a Supabase project and connection secrets are supplied through the deployment environment. See the [Supabase Prisma guide](https://supabase.com/docs/guides/database/prisma) for current connection-string and role guidance.
+
+> **Upgrading an existing PostgreSQL deployment to Username / User ID login?** Apply the migration *before* deploying the app. See [docs/deploy-username-login.md](docs/deploy-username-login.md).
 
 ## Netlify hosting with GitHub and Supabase
 
@@ -109,6 +116,14 @@ The app deliberately rejects `sk_live_...`. Checkout completion alone does not c
 4. Restart and visit More → Linked accounts. Plaid Link uses test institution credentials, not the customer's real bank login.
 
 Never put a secret key in `NEXT_PUBLIC_*`, source code, form fields or browser storage. Configure production credentials only through a secret manager after a formal security and compliance review.
+
+## Unit and integration tests
+
+```bash
+npm test
+```
+
+Vitest covers username validation and case-insensitive uniqueness (SQLite data layer and the PostgreSQL migration, replayed in-process with PGlite), existing-user sign-in compatibility, enrollment approval and generic login errors, the password show/hide toggle (jsdom), and the MFA method screen — each user sees only their own masked phone/email and no full contact value appears in the rendered page or its props. Tests use disposable databases and never touch `prisma/dev.db` data.
 
 ## E2E tests
 

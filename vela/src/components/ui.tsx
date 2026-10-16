@@ -57,9 +57,12 @@ type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
   error?: string;
   hint?: string;
   icon?: React.ReactNode;
+  /** Control rendered inside the right edge of the field (e.g. a show/hide button). */
+  trailing?: React.ReactNode;
+  ref?: React.Ref<HTMLInputElement>;
 };
 
-export function Input({ label, error, hint, icon, className = "", id, ...rest }: InputProps) {
+export function Input({ label, error, hint, icon, trailing, className = "", id, ...rest }: InputProps) {
   const inputId = id ?? (label ? label.toLowerCase().replace(/\s+/g, "-") : undefined);
   return (
     <div className="w-full">
@@ -85,10 +88,52 @@ export function Input({ label, error, hint, icon, className = "", id, ...rest }:
           } ${className}`}
           {...rest}
         />
+        {trailing && <div className="absolute inset-y-0 right-1 flex items-center">{trailing}</div>}
       </div>
       {hint && !error && <p className="mt-1 text-[11px] text-gray-500">{hint}</p>}
       {error && <p className="mt-1 text-[11px] font-semibold text-bank-red">{error}</p>}
     </div>
+  );
+}
+
+/**
+ * Password field with an accessible Show/Hide toggle. The password stays hidden by default and the
+ * toggle only flips the input's `type`, so the typed value is never cleared or re-created. It is a
+ * `type="button"` so activating it (click, Enter or Space) never submits the surrounding form.
+ */
+export function PasswordInput({
+  toggleLabel,
+  ...props
+}: Omit<InputProps, "type" | "trailing"> & {
+  /** Distinguishes toggles when a form has several password fields, e.g. "new password". Default "password". */
+  toggleLabel?: string;
+}) {
+  const [visible, setVisible] = React.useState(false);
+  const inputId = props.id ?? (props.label ? props.label.toLowerCase().replace(/\s+/g, "-") : undefined);
+  const noun = toggleLabel ?? "password";
+  return (
+    <Input
+      {...props}
+      id={inputId}
+      type={visible ? "text" : "password"}
+      className={`pr-16 ${props.className ?? ""}`}
+      // Stop browsers/keyboards from capitalising or "correcting" a revealed password.
+      autoCapitalize="none"
+      autoCorrect="off"
+      spellCheck={false}
+      trailing={
+        <button
+          type="button"
+          onClick={() => setVisible((v) => !v)}
+          aria-label={`${visible ? "Hide" : "Show"} ${noun}`}
+          aria-controls={inputId}
+          data-testid={`password-toggle-${inputId ?? "field"}`}
+          className="h-8 rounded px-2 text-[12px] font-semibold text-bank-link underline underline-offset-2 hover:text-bank-blueDark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bank-blue focus-visible:ring-offset-1"
+        >
+          {visible ? "Hide" : "Show"}
+        </button>
+      }
+    />
   );
 }
 

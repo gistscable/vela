@@ -4,7 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { formatDate } from "@/lib/money";
 import { Badge, Panel } from "@/components/ui";
 import { PageHeader } from "@/components/transactions";
-import { PasswordForm, ProfileForm } from "@/components/SettingsForms";
+import { PasswordForm, ProfileForm, UsernameForm } from "@/components/SettingsForms";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Customer Service & Settings — First Meridian Bank" };
@@ -31,7 +31,10 @@ export default async function SettingsPage() {
 
         <div className="space-y-5">
           <Panel title="Sign-in & passcode">
-            <PasswordForm />
+            <div className="space-y-6">
+              <UsernameForm username={user.username} />
+              <PasswordForm />
+            </div>
           </Panel>
 
           <Panel title="Account status">
