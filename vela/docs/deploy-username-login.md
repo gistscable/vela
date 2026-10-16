@@ -23,36 +23,73 @@ regardless, and the guard does nothing there.
 
 ## Steps
 
-1. **Back up** the Supabase database (or confirm point-in-time recovery is on).
-2. Use the **direct / session-mode** connection (port 5432), not the transaction pooler, as `DIRECT_URL`.
-3. Check how the database is tracked:
-   ```bash
-   DATABASE_PROVIDER=postgresql DATABASE_URL=... DIRECT_URL=... npm run prisma:generate
-   DATABASE_PROVIDER=postgresql DATABASE_URL=... DIRECT_URL=... node scripts/prisma.mjs migrate status
-   ```
-   - **Tracked by Prisma migrations** (`_prisma_migrations` exists and lists the earlier five): continue to step 4a.
-   - **Created some other way** (e.g. `db push`; `migrate status` reports P3005 / no history): continue to step 4b.
-4. Apply:
-   - **4a.** `DATABASE_PROVIDER=postgresql ... npm run db:migrate:deploy`
-   - **4b.** Run the SQL of `20261015015000_ensure_external_account_table/migration.sql` and then
-     `20261016000000_username_login/migration.sql` in the Supabase SQL editor (in that order, each as a
-     single run), then record them so future `migrate deploy` runs don't retry:
-     ```bash
-     node scripts/prisma.mjs migrate resolve --applied 20261015015000_ensure_external_account_table
-     node scripts/prisma.mjs migrate resolve --applied 20261016000000_username_login
-     ```
-     (Only mark the earlier migrations as applied if the database really contains their changes.)
-5. **Verify the schema** before deploying:
-   ```sql
-   SELECT column_name, is_nullable FROM information_schema.columns
-    WHERE table_name = 'User' AND column_name IN ('username','usernameNormalized');   -- 2 rows, both YES
-   SELECT indexname FROM pg_indexes WHERE tablename = 'User' AND indexname = 'User_usernameNormalized_key';
-   SELECT count(*) AS users, count("username") AS with_username FROM "User";            -- with_username = 0
-   ```
-   Confirm that signing in on the **currently deployed** (old) site still works.
-6. **Merge the PR** / let Netlify deploy. Smoke test: sign in with an existing email, confirm the dashboard
-   shows the "Choose a Username / User ID" prompt, set one in Settings, sign out, sign in with it
-   (any letter case), and open the MFA screen to check the masked phone/email.
+Run every command below in `vela/` on your own machine, with the connection strings set as
+**environment variables in your own terminal**. Never paste them into chat, tickets, or commits.
+Prisma needs two variables because `schema.postgresql.prisma` declares `directUrl`:
+`DATABASE_URL` and `DIRECT_URL` (for migrations both should be the **direct / session** connection on
+port 5432, not the pooler on 6543).
+
+### 1. Identify the database behind each Netlify site
+
+Each site has its own environment variables, so do not assume the two sites share a database. In
+Netlify → *Site configuration → Environment variables*, read `DATABASE_URL` and `DIRECT_URL` for
+**each** site (note the *Production* context value specifically). Compare the host and database name
+(for Supabase, the project ref in `db.<ref>.supabase.co` or `postgres.<ref>@…pooler.supabase.com`).
+Write down: site → project/database. Every distinct database needs the remaining steps.
+Then confirm each with the inspector, which prints host/database/server but never the password:
+
+```bash
+npm ci
+DATABASE_URL='<direct url for that database>' node scripts/verify-migration-state.mjs pre
+```
+
+### 2. Confirm a recoverable backup (per database)
+
+Supabase dashboard → *Database → Backups*: a daily backup from today, or point-in-time recovery enabled,
+**or** take a manual dump: `pg_dump "$DIRECT_URL" --format=custom --file=vela-before-username.dump`.
+Note the time and the `User` row count that `verify-migration-state.mjs pre` printed.
+
+### 3. Apply the migrations (per database)
+
+`verify-migration-state.mjs pre` prints which of these applies and the exact commands.
+
+- **Tracked database** (`_prisma_migrations` lists the five earlier migrations): 
+  `DATABASE_PROVIDER=postgresql npm run db:migrate:deploy`
+  applies only the two new migrations. (`migrate status` will list both as pending first: the guard is
+  older than migrations that are already recorded, and `deploy` still applies it.)
+- **Untracked database** (no `_prisma_migrations`, e.g. built with `db push`; `migrate deploy` stops with
+  **P3005** and `migrate status` misleadingly lists *all seven* as pending): baseline the five released
+  migrations, then deploy. Only baseline migrations whose changes the schema really contains (`pre`
+  checks this and refuses otherwise):
+  ```bash
+  export DATABASE_PROVIDER=postgresql
+  for m in 20261015000000_init_postgresql 20261015010000_transaction_approvals \
+           20261015020000_external_account_verification 20261015030000_enrollment_approval \
+           20261015040000_totp_mfa; do node scripts/prisma.mjs migrate resolve --applied $m; done
+  npm run db:migrate:deploy
+  ```
+- Applying the SQL by hand in the Supabase SQL editor also works (run the guard first, then the username
+  migration, each as one run), but you must then record them with `migrate resolve --applied <name>`
+  (after baselining as above if the database is untracked).
+
+### 4. Verify (per database)
+
+```bash
+DATABASE_URL='<direct url>' node scripts/verify-migration-state.mjs post
+```
+
+It checks, read-only: both columns exist and are nullable; `User_usernameNormalized_key` is a unique
+index; `User_username_consistent_check` exists and is validated; `ExternalAccount` has exactly one FK;
+all seven migrations are recorded as applied with none failed; no user has an inconsistent pair; every
+table/column matches `schema.postgresql.prisma`. Exit code 0 means all passed. Also confirm that the
+**currently deployed (old) release still signs in** on every site, with an existing email and password.
+
+### 5. Merge, then smoke test
+
+Only when step 4 passed for every database: merge the PR and let Netlify deploy. Smoke test: sign in with
+an existing email, confirm the dashboard shows the "Choose a Username / User ID" prompt, set one in
+Settings, sign out, sign in with it (any letter case), and open the MFA screen to check the masked
+phone/email and the three method options.
 
 ## Rollback
 
@@ -63,8 +100,17 @@ run `prisma/rollback/20261016000000_username_login.down.sql`, then
 
 ## What has and has not been verified
 
-Verified in CI-less local tests: the whole history replays on PostgreSQL (PGlite) and matches
-`schema.postgresql.prisma` exactly; the two migrations apply to a database that already holds users
-without changing any row; the previous release's queries still work afterwards; the rollback works.
-**Not verified:** the real production Supabase database, which is not reachable from the build
-environment. Steps 3–5 above are how to confirm it there.
+- **Real PostgreSQL 18.4 + Prisma 6.19.3 `migrate` (schema engine), run locally** (see caveats): fresh
+  `migrate deploy` of all seven migrations; a *tracked* database whose history already lists the five
+  earlier migrations (with users and an `ExternalAccount` row) — `migrate status` lists the guard and the
+  username migration as pending, `migrate deploy` applies both out of timestamp order without error, the
+  guard is a no-op, no row changes, `migrate status` then reports up to date; an *untracked* database —
+  `migrate deploy` gives P3005, the baseline-then-deploy procedure above succeeds; re-running is a no-op.
+  `verify-migration-state.mjs` was run against all of those and fails on a database that lacks the changes.
+- PGlite tests (`tests/postgres-migrations.test.ts`): replay, drift against `schema.postgresql.prisma`,
+  old release against the migrated schema, collisions, rollback SQL.
+- **Caveats:** the sandbox cannot download Prisma's native engines, so the lab ran Prisma's bundled WASM
+  schema engine through `@prisma/adapter-pg`, patched to run each migration script whole (as the native
+  engine does) and to accept the `name` column type. `migrate resolve --rolled-back` could not run there; the
+  rollback SQL itself was run and the record was updated by hand. Production runs Supabase's PostgreSQL, not 18.4.
+- **Not verified:** any real production Supabase database (not reachable from the build environment).

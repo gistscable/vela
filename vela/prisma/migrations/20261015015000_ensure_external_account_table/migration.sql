@@ -4,6 +4,7 @@
 -- ALTERs it, so replaying the history on a brand-new database failed there. Databases that were
 -- created from the Prisma schema (e.g. `db push`) already have this table.
 --
+-- Plain statements only (no DO/PL-pgSQL block) so every migration runner executes it identically.
 -- Everything here is IF NOT EXISTS: on a database that already has the table it changes nothing;
 -- on a fresh database it creates the pre-20261015020000 shape that the next migration extends.
 -- Its timestamp sorts between the two migrations it sits between, so replays run it in order, and
@@ -17,17 +18,8 @@ CREATE TABLE IF NOT EXISTS "ExternalAccount" (
     "accountMask" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "ExternalAccount_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "ExternalAccount_pkey" PRIMARY KEY ("id"),
+    CONSTRAINT "ExternalAccount_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS "ExternalAccount_userId_createdAt_idx" ON "ExternalAccount"("userId", "createdAt");
-
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'ExternalAccount_userId_fkey' AND conrelid = '"ExternalAccount"'::regclass
-  ) THEN
-    ALTER TABLE "ExternalAccount" ADD CONSTRAINT "ExternalAccount_userId_fkey"
-      FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-  END IF;
-END $$;
