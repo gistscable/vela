@@ -67,7 +67,8 @@ const METHOD_LABELS: Record<MfaMethod, string> = {
  * Choosing a method is purely a client-side view change. It sends nothing to the server, sends no
  * text, email or app request, and cannot complete sign-in: only the server action behind the
  * six-digit authenticator form (which re-checks the signed MFA challenge, lockout and replay
- * protection) can issue a session. Every option currently leads to that same form.
+ * protection) can issue a session. Every option currently leads to that same form, so the
+ * method-specific instructions must not claim a text/email code or app approval was sent.
  */
 export function TotpLoginForm({ contact }: { contact: MfaContactHints }) {
   const [selected, setSelected] = useState<MfaMethod | null>(null);
@@ -88,7 +89,7 @@ export function TotpLoginForm({ contact }: { contact: MfaContactHints }) {
     <div className="border border-gray-300 bg-white shadow-panel">
       <div className="border-b border-gray-200 bg-bank-sand px-6 py-4">
         <h1 className="text-[19px] font-bold text-bank-navy">
-          {selected ? "Verify with your authenticator app" : "Choose a verification method"}
+          {selected ? "Verify your sign-in" : "Choose a verification method"}
         </h1>
         <p className="mt-0.5 text-[11.5px] text-gray-600">Sign-in verification for your First Meridian account.</p>
       </div>
@@ -153,37 +154,31 @@ function MethodList({
 }) {
   const shared = { onChoose, cardRefs };
   return (
-    <>
-      <section aria-labelledby="methods-heading" className="space-y-3">
-        <h2 id="methods-heading" className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Select how you want to verify</h2>
+    <section aria-labelledby="methods-heading" className="space-y-3">
+      <h2 id="methods-heading" className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Select how you want to verify</h2>
 
-        <MethodCard method="authenticator" icon={<KeyRound className="h-4 w-4" aria-hidden="true" />} featured {...shared}>
-          <span className="mt-1 block text-[10.5px] leading-relaxed text-gray-600">Enter the six-digit code from Google Authenticator.</span>
+      <MethodCard method="authenticator" icon={<KeyRound className="h-4 w-4" aria-hidden="true" />} featured {...shared}>
+        <span className="mt-1 block text-[10.5px] leading-relaxed text-gray-600">Enter the six-digit code from Authenticator.</span>
+      </MethodCard>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <MethodCard method="sms" icon={<Smartphone className="h-4 w-4" aria-hidden="true" />} {...shared}>
+          <span data-testid="mfa-sms-destination" className="mt-1 block text-[11px] leading-relaxed text-gray-700">
+            {contact.phoneLastFour ? <>Phone ending in <strong>{contact.phoneLastFour}</strong></> : NO_PHONE_REGISTERED}
+          </span>
         </MethodCard>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <MethodCard method="sms" icon={<Smartphone className="h-4 w-4" aria-hidden="true" />} {...shared}>
-            <span data-testid="mfa-sms-destination" className="mt-1 block text-[11px] leading-relaxed text-gray-700">
-              {contact.phoneLastFour ? <>Phone ending in <strong>{contact.phoneLastFour}</strong></> : NO_PHONE_REGISTERED}
-            </span>
-          </MethodCard>
+        <MethodCard method="email" icon={<Mail className="h-4 w-4" aria-hidden="true" />} {...shared}>
+          <span data-testid="mfa-email-destination" className="mt-1 block break-all text-[11px] leading-relaxed text-gray-700">
+            {contact.emailMasked ? <strong>{contact.emailMasked}</strong> : NO_EMAIL_REGISTERED}
+          </span>
+        </MethodCard>
 
-          <MethodCard method="email" icon={<Mail className="h-4 w-4" aria-hidden="true" />} {...shared}>
-            <span data-testid="mfa-email-destination" className="mt-1 block break-all text-[11px] leading-relaxed text-gray-700">
-              {contact.emailMasked ? <strong>{contact.emailMasked}</strong> : NO_EMAIL_REGISTERED}
-            </span>
-          </MethodCard>
-
-          <MethodCard method="app" icon={<ShieldCheck className="h-4 w-4" aria-hidden="true" />} wide {...shared}>
-            <span className="mt-1 block text-[10px] leading-relaxed text-gray-500">Approve this sign-in from your First Meridian app.</span>
-          </MethodCard>
-        </div>
-      </section>
-
-      <p data-testid="mfa-methods-notice" className="border-l-4 border-bank-red bg-gray-50 px-3 py-2 text-[10.5px] leading-relaxed text-gray-600">
-        If you lose access to your authenticator, contact an administrator for a reset.
-      </p>
-    </>
+        <MethodCard method="app" icon={<ShieldCheck className="h-4 w-4" aria-hidden="true" />} wide {...shared}>
+          <span className="mt-1 block text-[10px] leading-relaxed text-gray-500">Approve this sign-in from your First Meridian app.</span>
+        </MethodCard>
+      </div>
+    </section>
   );
 }
 
@@ -192,31 +187,31 @@ function AuthenticatorStep({ method, contact, onBack }: { method: MfaMethod; con
   const codeRef = useRef<HTMLInputElement>(null);
   useEffect(() => { codeRef.current?.focus(); }, []);
 
-  const destination =
+  const selectedMethod =
     method === "sms"
-      ? contact.phoneLastFour ? `Text message to phone ending in ${contact.phoneLastFour}` : NO_PHONE_REGISTERED
+      ? contact.phoneLastFour ? `Text message to phone ending in ${contact.phoneLastFour}` : `Text message to phone (${NO_PHONE_REGISTERED})`
       : method === "email"
-        ? contact.emailMasked ?? NO_EMAIL_REGISTERED
-        : null;
+        ? contact.emailMasked ? `Email code to ${contact.emailMasked}` : `Email code (${NO_EMAIL_REGISTERED})`
+        : METHOD_LABELS[method];
+  const unavailableMethodNotice =
+    method === "sms" ? "This demo does not send text message codes."
+      : method === "email" ? "This demo does not send email codes."
+        : method === "app" ? "This demo does not send app approval requests."
+          : null;
 
   return (
     <div data-testid="mfa-authenticator-step" className="space-y-4">
       <div data-testid="mfa-verification-notice">
-        <Alert tone="info" title="Authenticator verification">
-          {method === "authenticator" ? (
-            <>Open Google Authenticator and enter the current six-digit code for your First Meridian account.</>
-          ) : (
-            <>
-              Open Google Authenticator and enter the current six-digit code for your account.
-              {destination && <> You selected: <span data-testid="mfa-selected-destination">{destination}</span>.</>}
-            </>
-          )}
+        <Alert tone="info" title="Verification">
+          You selected: <span data-testid="mfa-selected-destination">{selectedMethod}</span>.{" "}
+          {unavailableMethodNotice && <>{unavailableMethodNotice} </>}
+          Enter the current six-digit code from Authenticator for your account.
         </Alert>
       </div>
 
       {state?.error && <Alert tone="error" title="Sign-in verification">{state.error}</Alert>}
 
-      <form action={formAction} className="space-y-4" aria-label="Authenticator verification">
+      <form action={formAction} className="space-y-4" aria-label="Verification">
         <Input
           ref={codeRef}
           label="Six-digit authenticator code"

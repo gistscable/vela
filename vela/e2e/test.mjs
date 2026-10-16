@@ -99,20 +99,24 @@ async function finishAuthenticator(page, email) {
     const leaks = [contactUser?.email, contactUser?.phone, digits.length >= 8 ? digits : null].filter(Boolean);
     check(`MFA screen does not expose ${email}'s full contact details`, leaks.every((value) => !pageHtml.includes(value)));
     const screenText = await page.locator("main, body").first().innerText();
-    check("MFA screen shows authenticator reset guidance without implying a code was sent", screenText.includes("If you lose access to your authenticator, contact an administrator for a reset") && !screenText.includes("All options currently continue") && !/code (was|has been) sent/i.test(screenText));
+    check("MFA method screen uses generic Authenticator wording without the reset banner", screenText.includes("Enter the six-digit code from Authenticator.") && !screenText.includes("If you lose access to your authenticator, contact an administrator for a reset") && !screenText.includes("Google Authenticator") && !/code (was|has been) sent/i.test(screenText));
 
-    // Every selection opens the working authenticator form and can go back.
+    // Every selection shows its own masked method, but only the authenticator code is verified.
     const selectionPaths = [
-      { id: "mfa-method-sms" },
-      { id: "mfa-method-email" },
-      { id: "mfa-method-app-approval" },
+      { id: "mfa-method-sms", selected: digits.length >= 8 ? `Text message to phone ending in ${digits.slice(-4)}` : "Text message to phone (No phone number registered)", unavailable: "This demo does not send text message codes." },
+      { id: "mfa-method-email", selected: `Email code to ${expectedMaskedEmail}`, unavailable: "This demo does not send email codes." },
+      { id: "mfa-method-app-approval", selected: "Approve in First Meridian app", unavailable: "This demo does not send app approval requests." },
     ];
     let selectionPathsOk = true;
     for (const path of selectionPaths) {
       await page.getByTestId(path.id).click();
       await page.getByLabel("Six-digit authenticator code").waitFor();
       const noticeText = await page.getByTestId("mfa-verification-notice").innerText();
-      selectionPathsOk &&= noticeText.includes("Open Google Authenticator and enter the current six-digit code") && !/temporarily|was sent/i.test(noticeText)
+      selectionPathsOk &&= await page.getByRole("heading", { name: "Verify your sign-in" }).isVisible()
+        && noticeText.includes(`You selected: ${path.selected}`)
+        && noticeText.includes(path.unavailable)
+        && noticeText.includes("Enter the current six-digit code from Authenticator for your account.")
+        && !noticeText.includes("Google Authenticator")
         && await page.getByRole("button", { name: "Back to verification methods" }).isVisible()
         && !(await page.context().cookies(BASE)).some((cookie) => cookie.name === "fmb_session_v2")
         && new URL(page.url()).pathname === "/mfa/verify";
@@ -120,7 +124,7 @@ async function finishAuthenticator(page, email) {
       await page.getByTestId("mfa-method-sms").waitFor();
       selectionPathsOk &&= await page.locator('input[name="totpCode"]').count() === 0;
     }
-    check("Each MFA selection opens the authenticator form, Back works, and selection alone never signs in", selectionPathsOk);
+    check("Each MFA selection shows its own option, Back works, and selection alone never signs in", selectionPathsOk);
     // Finish through a rotating method so each path also gets a real successful verification.
     const finishingMethod = ["mfa-method-sms", "mfa-method-email", "mfa-method-app-approval", "mfa-method-authenticator"][mfaFinishCount++ % 4];
     await page.getByTestId(finishingMethod).click();
