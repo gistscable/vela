@@ -77,6 +77,20 @@ async function finishAuthenticator(page, email) {
   await page.waitForURL((url) => url.pathname === "/mfa/setup" || url.pathname === "/mfa/verify", { timeout: 20000 });
   const mfaPath = new URL(page.url()).pathname;
   const hadFullSession = (await page.context().cookies(BASE)).some((cookie) => cookie.name === "fmb_session_v2");
+  if (mfaPath === "/mfa/verify") {
+    const authenticatorOption = page.getByTestId("mfa-method-authenticator");
+    const unavailableIds = ["mfa-method-sms", "mfa-method-email", "mfa-method-app-approval"];
+    const optionsAreHonest =
+      await authenticatorOption.count() === 1
+      && await authenticatorOption.getByText("Available", { exact: true }).count() === 1
+      && (await Promise.all(unavailableIds.map(async (id) => {
+        const option = page.getByTestId(id);
+        return await option.count() === 1
+          && await option.getAttribute("aria-disabled") === "true"
+          && await option.getByText("Not enabled", { exact: true }).count() === 1;
+      }))).every(Boolean);
+    check("MFA method screen marks only the authenticator as available", optionsAreHonest);
+  }
   let secret = authenticatorSecrets.get(email);
   if (mfaPath === "/mfa/setup") {
     secret = (await page.getByTestId("totp-secret").innerText()).trim();
