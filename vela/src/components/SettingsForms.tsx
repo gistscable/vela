@@ -1,8 +1,8 @@
 "use client";
 
 import { useActionState } from "react";
-import { changePasswordAction, updateProfileAction, type ActionState } from "@/lib/actions";
-import { Alert, Button, Input } from "./ui";
+import { changePasswordAction, setUsernameAction, updateProfileAction, type ActionState } from "@/lib/actions";
+import { Alert, Button, Input, PasswordInput } from "./ui";
 
 export function ProfileForm({
   firstName,
@@ -39,11 +39,46 @@ export function PasswordForm() {
     <form action={formAction} className="space-y-4">
       {state?.error && <Alert tone="error" title="Error">{state.error}</Alert>}
       {state?.success && <Alert tone="success" title="Success">Your passcode has been changed.</Alert>}
-      <Input name="currentPassword" label="Current passcode" type="password" autoComplete="current-password" required />
-      <Input name="newPassword" label="New passcode" type="password" autoComplete="new-password" placeholder="At least 8 characters" required />
+      <PasswordInput name="currentPassword" label="Current passcode" toggleLabel="current password" autoComplete="current-password" required />
+      <PasswordInput name="newPassword" label="New passcode" toggleLabel="new password" autoComplete="new-password" placeholder="At least 8 characters" required />
       <Button type="submit" loading={pending} variant="navy">
         Update passcode
       </Button>
+    </form>
+  );
+}
+
+/** Username / User ID: read-only once set; existing users without one choose it here. */
+export function UsernameForm({ username }: { username: string | null }) {
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(setUsernameAction, null);
+  if (username || state?.success) {
+    return (
+      <div className="space-y-2">
+        {state?.success && <Alert tone="success" title="Success">{state.message}</Alert>}
+        <Input id="settings-username-current" label="Username / User ID" value={username ?? ""} readOnly hint="Your sign-in username. Email sign-in keeps working." data-testid="username-current" />
+      </div>
+    );
+  }
+  return (
+    <form action={formAction} className="space-y-3" data-testid="username-form">
+      <p className="text-[11.5px] leading-relaxed text-gray-600">
+        You do not have a Username / User ID yet. You can keep signing in with your email; choose a username to sign in with it as well. You can only set it once here.
+      </p>
+      {state?.error && <Alert tone="error" title="Username / User ID">{state.error}</Alert>}
+      <Input
+        id="settings-username"
+        name="username"
+        label="Choose a Username / User ID"
+        autoComplete="username"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        minLength={3}
+        maxLength={32}
+        hint="3-32 characters: letters, numbers, periods, underscores, hyphens. Not case-sensitive; no @."
+        required
+      />
+      <Button type="submit" loading={pending} variant="navy">Save username</Button>
     </form>
   );
 }

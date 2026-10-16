@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { loginAction, signupAction, type ActionState } from "@/lib/actions";
-import { Alert, Button, Input } from "./ui";
+import { Alert, Button, Input, PasswordInput } from "./ui";
 
 export function LoginForm() {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(loginAction, null);
@@ -17,8 +17,20 @@ export function LoginForm() {
       </div>
       <form action={formAction} className="space-y-4 px-6 py-6">
         {state?.error && <Alert tone="error" title="Sign-in error">{state.error}</Alert>}
-        <Input label="User ID" name="email" type="email" autoComplete="email" placeholder="you@example.com" required />
-        <Input label="Passcode" name="password" type="password" autoComplete="current-password" placeholder="••••••••" required />
+        <Input
+          id="login-username"
+          label="Username / User ID"
+          name="username"
+          type="text"
+          autoComplete="username"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          placeholder="Username or email"
+          hint="Existing members can still sign in with their email address."
+          required
+        />
+        <PasswordInput label="Passcode" name="password" autoComplete="current-password" placeholder="••••••••" required />
         <div className="flex items-center justify-between">
           <label className="flex items-center gap-2 text-[12px] text-gray-600">
             <input type="checkbox" className="h-3.5 w-3.5 rounded border-gray-400" defaultChecked /> Save User ID
@@ -114,12 +126,26 @@ export function SignupForm() {
             <Input label="Last name" name="lastName" placeholder="Last name" autoComplete="family-name" required />
           </div>
           <div className="mt-3 space-y-3">
+            <Input
+              id="signup-username"
+              label="Username / User ID"
+              name="username"
+              type="text"
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              minLength={3}
+              maxLength={32}
+              placeholder="e.g. sam.lee"
+              hint="3-32 characters: letters, numbers, periods, underscores, hyphens. This is how you will sign in; it is not case-sensitive and cannot contain @."
+              required
+            />
             <Input label="Email address" name="email" type="email" autoComplete="email" placeholder="you@example.com" required />
             <Input label="Phone number (optional)" name="phone" type="tel" autoComplete="tel" placeholder="(555) 555-0100" />
-            <Input
+            <PasswordInput
               label="Create passcode"
               name="password"
-              type="password"
               autoComplete="new-password"
               placeholder="At least 8 characters"
               hint="Use 8+ characters. This creates your prototype sign-in profile."

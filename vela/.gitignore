@@ -2,3 +2,5 @@ node_modules/
 .next/
 .env
 .env*.local
+prisma/unit-*.db*
+prisma/e2e.db*

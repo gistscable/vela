@@ -3,6 +3,8 @@
 import { useActionState } from "react";
 import { KeyRound, Mail, ShieldCheck, Smartphone } from "lucide-react";
 import { completeTotpSetupAction, verifyTotpLoginAction, type ActionState } from "@/lib/actions";
+import type { MfaContactHints } from "@/lib/mfa-contact";
+import { NO_EMAIL_REGISTERED, NO_PHONE_REGISTERED } from "@/lib/mfa-contact";
 import { Alert, Button, Input } from "./ui";
 
 export function TotpSetupForm({
@@ -49,13 +51,17 @@ export function TotpSetupForm({
   );
 }
 
-export function TotpLoginForm({ email }: { email: string }) {
+/**
+ * Method-choice screen. It deliberately receives only masked contact hints — never the full phone
+ * number or email address — so nothing sensitive can be rendered or serialized into the page.
+ */
+export function TotpLoginForm({ contact }: { contact: MfaContactHints }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(verifyTotpLoginAction, null);
   return (
     <div className="border border-gray-300 bg-white shadow-panel">
       <div className="border-b border-gray-200 bg-bank-sand px-6 py-4">
         <h1 className="text-[19px] font-bold text-bank-navy">Choose a verification method</h1>
-        <p className="mt-0.5 text-[11.5px] text-gray-600">Sign-in verification for {email}.</p>
+        <p className="mt-0.5 text-[11.5px] text-gray-600">Sign-in verification for your First Meridian account.</p>
       </div>
 
       <div className="space-y-5 px-6 py-6">
@@ -78,7 +84,7 @@ export function TotpLoginForm({ email }: { email: string }) {
                   <span className="border border-blue-200 bg-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-bank-blue">Available</span>
                 </div>
                 <p className="mt-1 text-[10.5px] leading-relaxed text-gray-600">
-                  Open Google Authenticator for {email} and enter its current six-digit code.
+                  Open Google Authenticator and enter the current six-digit code for your First Meridian account.
                 </p>
               </div>
             </div>
@@ -101,7 +107,12 @@ export function TotpLoginForm({ email }: { email: string }) {
                     <h3 className="text-[11.5px] font-bold text-gray-700">Text message to phone</h3>
                     <span className="border border-gray-300 bg-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-gray-500">Not enabled</span>
                   </div>
-                  <p className="mt-1 text-[10px] leading-relaxed text-gray-500">SMS delivery is not configured, so no text code will be sent.</p>
+                  <p data-testid="mfa-sms-destination" className="mt-1 text-[11px] leading-relaxed text-gray-700">
+                    {contact.phoneLastFour ? <>Phone ending in <strong>{contact.phoneLastFour}</strong></> : NO_PHONE_REGISTERED}
+                  </p>
+                  <p className="mt-1 text-[10px] leading-relaxed text-gray-500">
+                    {contact.phoneLastFour ? "Registered on your profile, not verified. " : ""}SMS delivery is not configured, so no text code will be sent.
+                  </p>
                 </div>
               </div>
             </div>
@@ -114,7 +125,12 @@ export function TotpLoginForm({ email }: { email: string }) {
                     <h3 className="text-[11.5px] font-bold text-gray-700">Email code</h3>
                     <span className="border border-gray-300 bg-white px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-gray-500">Not enabled</span>
                   </div>
-                  <p className="mt-1 text-[10px] leading-relaxed text-gray-500">Email delivery is not configured, so no email code will be sent.</p>
+                  <p data-testid="mfa-email-destination" className="mt-1 break-all text-[11px] leading-relaxed text-gray-700">
+                    {contact.emailMasked ? <strong>{contact.emailMasked}</strong> : NO_EMAIL_REGISTERED}
+                  </p>
+                  <p className="mt-1 text-[10px] leading-relaxed text-gray-500">
+                    {contact.emailMasked ? "Registered on your profile, not verified. " : ""}Email delivery is not configured, so no email code will be sent.
+                  </p>
                 </div>
               </div>
             </div>
@@ -135,7 +151,7 @@ export function TotpLoginForm({ email }: { email: string }) {
         </section>
 
         <p className="border-l-4 border-bank-red bg-gray-50 px-3 py-2 text-[10.5px] leading-relaxed text-gray-600">
-          The authenticator app is currently the only working sign-in method. If you lose access, contact an administrator for a reset.
+          All options currently continue to authenticator verification. The authenticator app is the only working sign-in method, and no code is sent to the phone or email shown above. If you lose access, contact an administrator for a reset.
         </p>
       </div>
     </div>

@@ -23,7 +23,8 @@ import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 
 export type User = {
-  id: string; email: string; passwordHash: string; firstName: string; lastName: string;
+  id: string; email: string; username: string | null; usernameNormalized: string | null;
+  passwordHash: string; firstName: string; lastName: string;
   phone: string | null; role: string; enrollmentStatus: string;
   enrollmentReviewedById: string | null; enrollmentReviewedAt: Date | null;
   mfaEnabled: boolean; totpSecretEncrypted: string | null; totpLastUsedStep: number | null;

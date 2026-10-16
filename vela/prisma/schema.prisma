@@ -10,6 +10,11 @@ datasource db {
 model User {
   id                    String          @id @default(cuid())
   email                 String          @unique
+  // Login identifier, separate from the internal `id`. Nullable only so existing users keep
+  // working until they choose one; `usernameNormalized` (lower-cased) carries the unique
+  // constraint, which makes uniqueness case-insensitive on SQLite and PostgreSQL alike.
+  username              String?
+  usernameNormalized    String?         @unique
   passwordHash          String
   firstName             String
   lastName              String
