@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-white font-sans text-[14px] leading-[1.5] text-bank-ink antialiased;
+}
+
+/* Institutional link styling */
+a.bank-link {
+  @apply text-bank-link underline decoration-1 underline-offset-2 hover:text-bank-blueDark hover:decoration-2;
+}
+
+::selection {
+  @apply bg-bank-sand text-bank-navy;
+}
+
+*::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+*::-webkit-scrollbar-thumb {
+  @apply rounded bg-gray-300;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Forms: square, dense, bank-like */
+input,
+select,
+textarea,
+button {
+  border-radius: 3px;
+}
+
+/* Statement printing */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+  .print-area {
+    box-shadow: none !important;
+    border: none !important;
+  }
+}

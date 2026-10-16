@@ -1,0 +1,7 @@
+[build]
+command = "npm run build"
+publish = ".next"
+
+[build.environment]
+DATABASE_PROVIDER = "postgresql"
+NODE_VERSION = "20"

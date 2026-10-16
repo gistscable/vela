@@ -1,0 +1,227 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String          @id @default(cuid())
+  email                 String          @unique
+  passwordHash          String
+  firstName             String
+  lastName              String
+  phone                 String?
+  role                  String          @default("CUSTOMER") // CUSTOMER | ADMIN
+  enrollmentStatus       String          @default("APPROVED") // PENDING_APPROVAL | APPROVED | REJECTED
+  enrollmentReviewedById String?
+  enrollmentReviewedAt   DateTime?
+  mfaEnabled             Boolean         @default(false)
+  totpSecretEncrypted    String?
+  totpLastUsedStep       Int?
+  mfaPendingSecretEncrypted String?
+  mfaPendingExpiresAt    DateTime?
+  mfaFailedAttempts     Int             @default(0)
+  mfaLockedUntil         DateTime?
+  createdAt              DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  accounts              Account[]
+  payees                Payee[]
+  billPayees            BillPayee[]
+  billPayments          BillPayment[]
+  linkedBanks           LinkedBank[]
+  externalAccounts      ExternalAccount[]
+  fundingIntents        FundingIntent[]
+  moneyRequestsMade     MoneyRequest[]  @relation("MoneyRequestRequester")
+  moneyRequestsReceived MoneyRequest[]  @relation("MoneyRequestRecipient")
+
+  @@index([enrollmentStatus, createdAt])
+}
+
+model Account {
+  id             String          @id @default(cuid())
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type           String // CHECKING | SAVINGS
+  name           String
+  accountNumber  String          @unique
+  routingNumber  String
+  balance        Int // cents, signed
+  status         String          @default("ACTIVE") // ACTIVE | FROZEN | CLOSED
+  apy            Float? // for savings display
+  createdAt      DateTime        @default(now())
+  transactions   Transaction[]
+  cards          Card[]
+  billPayments   BillPayment[]
+  fundingIntents FundingIntent[]
+  moneyRequests  MoneyRequest[]
+
+  @@index([userId, createdAt])
+}
+
+model Transaction {
+  id           String   @id @default(cuid())
+  accountId    String
+  account      Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  amount       Int // cents, signed: positive = credit, negative = debit
+  type         String // DEPOSIT | WITHDRAWAL | TRANSFER_IN | TRANSFER_OUT | CARD_PURCHASE | PAYMENT | FEE | INTEREST
+  category     String // INCOME | HOUSING | FOOD | TRANSPORT | SHOPPING | ENTERTAINMENT | UTILITIES | HEALTH | TRANSFER | SAVINGS | OTHER
+  description  String
+  counterparty String?
+  paymentMethod String? // ACH | WIRE | BILL_PAY | INTERNAL | QUICK_PAY | MOBILE_DEPOSIT
+  status       String   @default("COMPLETED") // PENDING_APPROVAL | COMPLETED | REJECTED | PENDING | FAILED
+  reference    String? // links paired transfer legs
+  balanceAfter Int?
+  reviewedById String?
+  reviewedAt   DateTime?
+  createdAt    DateTime @default(now())
+
+  @@index([accountId, createdAt])
+  @@index([reference])
+  @@index([status, createdAt])
+}
+
+model Card {
+  id         String   @id @default(cuid())
+  accountId  String
+  account    Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  last4      String
+  brand      String   @default("Visa")
+  status     String   @default("ACTIVE") // ACTIVE | FROZEN
+  dailyLimit Int      @default(50000) // cents
+  spentToday Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@index([accountId])
+}
+
+model Payee {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  email     String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model BillPayee {
+  id                     String        @id @default(cuid())
+  userId                 String
+  user                   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                   String
+  category               String        @default("OTHER")
+  accountMask            String?
+  encryptedAccountNumber String?
+  createdAt              DateTime      @default(now())
+  payments               BillPayment[]
+
+  @@index([userId, createdAt])
+}
+
+model BillPayment {
+  id                 String    @id @default(cuid())
+  userId             String
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payeeId            String
+  payee              BillPayee @relation(fields: [payeeId], references: [id], onDelete: Cascade)
+  accountId          String
+  account            Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  amount             Int
+  scheduledFor       DateTime
+  frequency          String    @default("ONCE") // ONCE | MONTHLY
+  memo               String?
+  status             String    @default("SCHEDULED") // PENDING_APPROVAL | SCHEDULED | PROCESSING | COMPLETED | CANCELED | FAILED
+  confirmationNumber String    @unique
+  createdAt          DateTime  @default(now())
+
+  @@index([userId, scheduledFor])
+  @@index([accountId, scheduledFor])
+}
+
+model LinkedBank {
+  id                   String   @id @default(cuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider             String   @default("PLAID")
+  plaidItemId          String?  @unique
+  institutionId        String?
+  institutionName      String
+  encryptedAccessToken String
+  accountsJson         String   @default("[]")
+  createdAt            DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model ExternalAccount {
+  id                       String   @id @default(cuid())
+  userId                   String
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institutionName          String
+  nickname                 String
+  accountType              String   // CHECKING | SAVINGS
+  accountMask              String   // Last four digits only; no account or routing number is stored.
+  status                   String   @default("PENDING_APPROVAL") // PENDING_APPROVAL | CHALLENGE_ACTIVE | VERIFIED | REJECTED
+  microdepositAmount1      Int?
+  microdepositAmount2      Int?
+  microdepositExpiresAt    DateTime?
+  microdepositAttempts     Int      @default(0)
+  reviewedById             String?
+  reviewedAt               DateTime?
+  verifiedAt               DateTime?
+  createdAt                DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, status, createdAt])
+}
+
+model FundingIntent {
+  id                    String   @id @default(cuid())
+  userId                String
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId             String
+  account               Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  amount                Int
+  status                String   @default("CREATED") // CREATED | PROCESSING | SUCCEEDED | FAILED
+  provider              String   @default("STRIPE")
+  providerSessionId     String?  @unique
+  stripePaymentIntentId String?  @unique
+  reference             String   @unique
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([userId, createdAt])
+}
+
+model MoneyRequest {
+  id             String    @id @default(cuid())
+  requesterId    String
+  requester      User      @relation("MoneyRequestRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  recipientId    String
+  recipient      User      @relation("MoneyRequestRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  recipientEmail String
+  accountId      String
+  account        Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  amount         Int
+  memo           String?
+  status         String    @default("OPEN") // OPEN | PENDING_APPROVAL | PAID | DECLINED | CANCELED
+  reference      String    @unique
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  paidAt         DateTime?
+
+  @@index([requesterId, status, createdAt])
+  @@index([recipientId, status, createdAt])
+  @@index([recipientEmail, status, createdAt])
+}
+
+model ProcessorEvent {
+  id        String   @id // provider event ID; webhook delivery is idempotent
+  provider  String
+  type      String
+  createdAt DateTime @default(now())
+}
