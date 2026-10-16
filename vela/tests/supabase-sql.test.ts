@@ -50,7 +50,7 @@ describe("docs/supabase scripts", () => {
   });
 
   it("01a/01b are read-only", () => {
-    for (const f of ["01a_readonly_state_check.sql", "01b_readonly_migration_history.sql", "04_verify_read_only.sql"]) {
+    for (const f of ["00_backup_data_export.sql", "01a_readonly_state_check.sql", "01b_readonly_migration_history.sql", "04_verify_read_only.sql"]) {
       expect(script(f).replace(/--.*$/gm, "").replace(/'[^']*'/g, "''")).not.toMatch(/\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT)\b/i);
     }
   });
