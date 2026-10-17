@@ -45,7 +45,7 @@ export default async function StatementPage({
         {/* Statement letterhead */}
         <div className="flex flex-col justify-between gap-3 border-b-2 border-bank-navy px-8 pb-5 pt-7 sm:flex-row sm:items-start">
           <div>
-            <Image src="/fmb-logo.png" alt="FMB" width={112} height={30} priority className="h-[30px] w-auto" />
+            <Image src="/fmb-logo.png" alt="FMB" width={195} height={30} priority className="h-[30px] w-auto" />
             <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-bank-red">Monthly account statement</p>
           </div>
           <div className="text-right text-[12px]">

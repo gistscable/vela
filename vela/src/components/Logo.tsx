@@ -1,10 +1,10 @@
 import Image from "next/image";
 
 /**
- * FMB brand lockup. The compass mark and the "FMB / EST. 1907" wordmark are
- * baked into a single PNG (public/fmb-logo.png, rendered at 3x), so the brand
- * name never appears as readable text in the DOM.
- * Source of truth for colors/typography lives in the render script history;
+ * FMB brand lockup. The full logo (compass mark + wordmark + tagline) is
+ * baked into a single pre-rendered PNG (public/fmb-logo.png, rendered at 3x),
+ * so the brand name never appears as readable text in the DOM — the browser
+ * only sees a brand-neutral filename and alt text.
  * `variant`/`compact` keep the pre-existing call-site API.
  */
 export function Logo({
@@ -23,7 +23,7 @@ export function Logo({
       <Image
         src={onDark ? "/fmb-logo-white.png" : "/fmb-logo.png"}
         alt="FMB"
-        width={112}
+        width={195}
         height={30}
         priority
         className={compact ? "h-6 w-auto" : "h-[30px] w-auto"}
