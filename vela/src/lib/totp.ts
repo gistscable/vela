@@ -1,5 +1,6 @@
 import "server-only";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { BRAND } from "@/lib/brand";
 
 /** RFC 6238 TOTP (Google Authenticator-compatible), 30s step, 6 digits. */
 
