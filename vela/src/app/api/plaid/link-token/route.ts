@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUserId, isSharedPreviewDemoMode } from "@/lib/auth";
+import { BRAND } from "@/lib/brand";
 import { getPlaidClient } from "@/lib/plaid";
 
 export const runtime = "nodejs";
