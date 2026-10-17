@@ -16,7 +16,7 @@ const USERNAME_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
 /** Names that look like system or staff identities and are never handed out at enrollment. */
 const RESERVED = new Set([
   "admin", "administrator", "root", "system", "support", "security", "staff", "service",
-  "firstmeridian", "meridian", "null", "undefined", "anonymous", "postmaster", "webmaster",
+  "fmb", "null", "undefined", "anonymous", "postmaster", "webmaster",
 ]);
 
 export type UsernameResult =

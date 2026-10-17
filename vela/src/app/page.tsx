@@ -292,7 +292,7 @@ export default async function LandingPage() {
               className="h-56 w-full object-cover"
             />
             <div className="p-6">
-              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-bank-red">First Meridian Wealth</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-bank-red">FMB Wealth</p>
               <h3 className="mt-2 text-[19px] font-bold leading-snug text-bank-navy">
                 Guidance from advisors who know your name
               </h3>
@@ -343,7 +343,7 @@ export default async function LandingPage() {
           <div>
             <h2 className="text-[24px] font-bold text-white">Ready to experience better banking?</h2>
             <p className="mt-1.5 text-[13.5px] text-white/75">
-              Join First Meridian Bank today — it takes less than five minutes.
+              Join FMB today — it takes less than five minutes.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -379,7 +379,7 @@ export default async function LandingPage() {
 
           <div className="mt-10 border-t border-gray-300 pt-6">
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px] font-bold text-bank-navy">
-              <span>© 2026 First Meridian Bank.</span>
+              <span>© 2026 FMB.</span>
             </div>
             <p className="mt-4 text-[10px] text-gray-500">
               Privacy Policy · Terms of Use · Accessibility · Online Banking Agreement · Your Privacy Choices

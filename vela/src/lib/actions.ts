@@ -234,7 +234,7 @@ export async function sendMoneyAction(_prev: ActionState, fd: FormData): Promise
   if (!amount || amount <= 0) return { error: "Enter an amount greater than $0." };
   if (from.balance < amount) return { error: "Insufficient funds for this payment." };
   const recipient = recipientEmail ? await db.user.findUnique({ where: { email: recipientEmail } }) : null;
-  if (!recipient || recipient.id === user.id) return { error: "Enter another First Meridian member's email." };
+  if (!recipient || recipient.id === user.id) return { error: "Enter another FMB member's email." };
   const recipientAccount = await db.account.findFirst({ where: { userId: recipient.id, type: "CHECKING", status: "ACTIVE" }, orderBy: { createdAt: "asc" } });
   if (!recipientAccount) return { error: "That member has no active checking account." };
   const reference = ref("pay");
@@ -252,7 +252,7 @@ export async function requestMoneyAction(_prev: ActionState, fd: FormData): Prom
   if (!account) return { error: "Choose the account to receive the money." };
   if (!amount || amount <= 0) return { error: "Enter an amount greater than $0." };
   const recipient = recipientEmail ? await db.user.findUnique({ where: { email: recipientEmail } }) : null;
-  if (!recipient || recipient.id === user.id) return { error: "Enter another First Meridian member's email." };
+  if (!recipient || recipient.id === user.id) return { error: "Enter another FMB member's email." };
   await db.moneyRequest.create({
     data: { requesterId: user.id, recipientId: recipient.id, recipientEmail, accountId: account.id, amount, memo: str(fd, "memo") || null, reference: ref("req") },
   });

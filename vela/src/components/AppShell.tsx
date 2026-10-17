@@ -78,7 +78,7 @@ export function AppShell({
         <div className="mx-auto flex max-w-[1180px] items-center justify-between px-3 py-2.5 sm:px-4 md:py-3">
           {/* Desktop web header */}
           <div className="hidden w-full items-center justify-between md:flex">
-            <Link href="/dashboard" aria-label="First Meridian Bank Account Summary" className="flex items-center gap-4">
+            <Link href="/dashboard" aria-label="FMB Account Summary" className="flex items-center gap-4">
               <Logo />
               <span className="border-l border-gray-300 pl-4 text-[13px] font-semibold text-gray-600">Online Banking</span>
             </Link>
@@ -106,7 +106,7 @@ export function AppShell({
               <Menu className="h-5 w-5" />
               <span className="mt-0.5 text-[9px]">Menu</span>
             </button>
-            <Link href="/dashboard" aria-label="First Meridian accounts"><Logo compact /></Link>
+            <Link href="/dashboard" aria-label="FMB accounts"><Logo compact /></Link>
             <div className="flex items-center gap-1">
               <Link href="/transactions" aria-label="Recent activity" className="flex min-h-11 min-w-10 flex-col items-center justify-center text-gray-600">
                 <History className="h-5 w-5" />
@@ -143,7 +143,7 @@ export function AppShell({
       <footer className="hidden border-t border-gray-300 bg-white md:block">
         <div className="mx-auto flex max-w-[1180px] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-5 text-[10.5px] text-gray-500">
           {sharedPreview && <span>This shared account's activity and saved destinations may change.</span>}
-          <span>© 2026 First Meridian Bank.</span>
+          <span>© 2026 FMB.</span>
           <nav className="ml-auto flex flex-wrap gap-4" aria-label="Footer links">
             <Link href="/help" className="hover:text-bank-link hover:underline">Help & support</Link>
             <Link href="/services" className="hover:text-bank-link hover:underline">Services</Link>
@@ -152,7 +152,7 @@ export function AppShell({
         </div>
       </footer>
       <footer className="border-t border-gray-200 bg-white px-4 py-3 text-center text-[10px] leading-relaxed text-gray-500 md:hidden">
-        <p>© 2026 First Meridian Bank.{sharedPreview ? " This shared account's activity and saved destinations may change." : ""}</p>
+        <p>© 2026 FMB.{sharedPreview ? " This shared account's activity and saved destinations may change." : ""}</p>
         <nav className="mt-2 flex justify-center gap-4" aria-label="Footer links">
           <Link href="/help" className="font-semibold text-bank-link underline underline-offset-2">Help</Link>
           <Link href="/services" className="font-semibold text-bank-link underline underline-offset-2">Services</Link>

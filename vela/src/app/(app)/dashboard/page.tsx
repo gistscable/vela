@@ -8,7 +8,7 @@ import { AreaChart, DonutChart, Panel } from "@/components/ui";
 import { SeeAllLink, Toast, TransactionList } from "@/components/transactions";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Account Summary — First Meridian Bank" };
+export const metadata: Metadata = { title: "Account Summary — FMB" };
 
 export default async function DashboardPage({
   searchParams,
@@ -69,7 +69,7 @@ export default async function DashboardPage({
             {data.accounts.map((account) => (
               <Link key={account.id} href={`/accounts/${account.id}`} className="flex items-center gap-2 border-b border-gray-200 px-4 py-3.5 last:border-0 hover:bg-gray-50">
                 <span className="min-w-0 flex-1">
-                  <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-gray-500">First Meridian Bank</span>
+                  <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-gray-500">FMB</span>
                   <span className="block text-[14px] font-medium leading-tight text-gray-900">{account.name} · {account.accountNumber.slice(-4)}</span>
                   <span className="mt-1 block text-[10.5px] text-gray-500">{account.type === "SAVINGS" && account.apy ? `${account.apy}% APY · ` : ""}Available balance</span>
                 </span>
@@ -89,7 +89,7 @@ export default async function DashboardPage({
             </div>
             <Link href="/cards" className="flex items-center gap-3 border-t border-gray-200 px-4 py-4 hover:bg-gray-50">
               <span className="min-w-0 flex-1">
-                <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-gray-500">First Meridian Bank</span>
+                <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-gray-500">FMB</span>
                 <span className="block text-[14px] font-medium text-gray-900">{data.card.brand} debit card · {data.card.last4}</span>
                 <span className="mt-1 block text-[10.5px] text-gray-500">{data.card.status === "FROZEN" ? "Temporarily locked" : "Manage card"}</span>
               </span>

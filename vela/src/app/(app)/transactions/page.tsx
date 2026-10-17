@@ -6,7 +6,7 @@ import { Button, Input, Panel, Select } from "@/components/ui";
 import { PageHeader, TransactionList } from "@/components/transactions";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Account Activity — First Meridian Bank" };
+export const metadata: Metadata = { title: "Account Activity — FMB" };
 
 const CATEGORY_LIST: Record<string, string> = {
   INCOME: "Income",

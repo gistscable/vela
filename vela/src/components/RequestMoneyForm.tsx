@@ -38,7 +38,7 @@ export function RequestMoneyForm({ accounts }: { accounts: AccountOption[] }) {
           <Select name="accountId" label="Deposit into" defaultValue={accounts[0]?.id} required>
             {accounts.map((account) => <option key={account.id} value={account.id}>{account.name} — {formatCents(account.balance)}</option>)}
           </Select>
-          <Input name="recipientEmail" label="Request from member" type="email" autoComplete="email" placeholder="member@example.com" hint="The person must have a First Meridian account." required />
+          <Input name="recipientEmail" label="Request from member" type="email" autoComplete="email" placeholder="member@example.com" hint="The person must have a FMB account." required />
           <Input name="amount" label="Amount" inputMode="decimal" placeholder="$0.00" required />
           <Input name="memo" label="Reason (optional)" placeholder="e.g. Dinner split" maxLength={120} />
           <Button type="submit" variant="navy" size="lg" className="w-full"><HandCoins className="h-4 w-4" /> Review request</Button>

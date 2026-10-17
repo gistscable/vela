@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Clock3 } from "lucide-react";
 
-export const metadata: Metadata = { title: "Enrollment received — First Meridian" };
+export const metadata: Metadata = { title: "Enrollment received — FMB" };
 
 export default function EnrollmentPendingPage() {
   return (

@@ -33,7 +33,7 @@ export function CardVisual({
       <div className="relative flex h-full flex-col justify-between">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-[12px] font-bold uppercase tracking-[0.22em]">First Meridian</p>
+            <p className="text-[12px] font-bold uppercase tracking-[0.22em]">FMB</p>
             <p className="mt-0.5 text-[10px] uppercase tracking-[0.18em] text-white/70">{card.brand} Debit</p>
             {frozen && (
               <span className="mt-2 inline-flex items-center gap-1 border border-white/40 px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wider">

@@ -8,7 +8,7 @@ export const SESSION_COOKIE = "fmb_session_v2";
 const MFA_COOKIE = "fmb_mfa_challenge";
 
 function secret(): Uint8Array {
-  return new TextEncoder().encode(process.env.AUTH_SECRET ?? "first-meridian-dev-auth-secret-change-me");
+  return new TextEncoder().encode(process.env.AUTH_SECRET ?? "fmb-dev-auth-secret-change-me");
 }
 
 export function isSharedPreviewDemoMode(): Promise<boolean> {

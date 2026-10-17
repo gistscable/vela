@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/transactions";
 import { MobileDepositForm } from "@/components/MobileDepositForm";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Mobile Deposit — First Meridian" };
+export const metadata: Metadata = { title: "Mobile Deposit — FMB" };
 
 export default async function MobileDepositPage() {
   const user = await requireUser();

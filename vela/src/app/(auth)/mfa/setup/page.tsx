@@ -6,7 +6,7 @@ import { requireMfaChallengeUser } from "@/lib/auth";
 import { decryptSensitive } from "@/lib/sensitive";
 import { totpProvisioningUri } from "@/lib/totp";
 
-export const metadata: Metadata = { title: "Set up authenticator — First Meridian" };
+export const metadata: Metadata = { title: "Set up authenticator — FMB" };
 
 export default async function MfaSetupPage() {
   const user = await requireMfaChallengeUser("setup");

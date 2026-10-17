@@ -9,7 +9,7 @@ import { RequestMoneyForm } from "@/components/RequestMoneyForm";
 import Link from "next/link";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Receive Money — First Meridian" };
+export const metadata: Metadata = { title: "Receive Money — FMB" };
 
 const notices: Record<string, { title: string; body: string; tone: "success" | "info" | "error" }> = {
   requested: { title: "Request sent", body: "The member can view and respond to your request.", tone: "success" },
@@ -53,11 +53,11 @@ export default async function ReceivePage({ searchParams }: { searchParams: Prom
     <div className="space-y-5">
       <PageHeader
         title="Receive money"
-        subtitle="Request funds from another First Meridian member."
+        subtitle="Request funds from another FMB member."
         actions={<Link href="/transfer?tab=send" className="text-[11.5px] font-semibold text-bank-link underline underline-offset-2">Send money instead</Link>}
       />
       {notice && <Alert tone={notice.tone} title={notice.title}>{notice.body}</Alert>}
-      <Alert tone="info" title="First Meridian member transfers">
+      <Alert tone="info" title="FMB member transfers">
         Payment requests appear in account activity as they are processed. Balances update when processing is complete.
       </Alert>
 

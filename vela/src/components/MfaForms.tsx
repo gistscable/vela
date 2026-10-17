@@ -57,7 +57,7 @@ const METHOD_LABELS: Record<MfaMethod, string> = {
   authenticator: "Authenticator app",
   sms: "Text message to phone",
   email: "Email code",
-  app: "Approve in First Meridian app",
+  app: "Approve in the FMB app",
 };
 
 /**
@@ -91,7 +91,7 @@ export function TotpLoginForm({ contact }: { contact: MfaContactHints }) {
         <h1 className="text-[19px] font-bold text-bank-navy">
           {selected ? "Verify your sign-in" : "Choose a verification method"}
         </h1>
-        <p className="mt-0.5 text-[11.5px] text-gray-600">Sign-in verification for your First Meridian account.</p>
+        <p className="mt-0.5 text-[11.5px] text-gray-600">Sign-in verification for your FMB account.</p>
       </div>
 
       <div className="space-y-5 px-6 py-6">
@@ -175,7 +175,7 @@ function MethodList({
         </MethodCard>
 
         <MethodCard method="app" icon={<ShieldCheck className="h-4 w-4" aria-hidden="true" />} wide {...shared}>
-          <span className="mt-1 block text-[10px] leading-relaxed text-gray-500">Approve this sign-in from your First Meridian app.</span>
+          <span className="mt-1 block text-[10px] leading-relaxed text-gray-500">Approve this sign-in from your FMB app.</span>
         </MethodCard>
       </div>
     </section>

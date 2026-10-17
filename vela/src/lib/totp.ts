@@ -68,6 +68,6 @@ export function verifyTotp(secret: string, code: string, afterStep?: number | nu
 }
 
 export function totpProvisioningUri(email: string, secret: string): string {
-  const issuer = "First Meridian";
+  const issuer = BRAND.name;
   return `otpauth://totp/${encodeURIComponent(`${issuer}:${email}`)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
 }

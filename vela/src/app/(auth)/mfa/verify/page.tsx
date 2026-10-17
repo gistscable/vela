@@ -3,7 +3,7 @@ import { TotpLoginForm } from "@/components/MfaForms";
 import { requireMfaChallengeUser } from "@/lib/auth";
 import { buildMfaContactHints } from "@/lib/mfa-contact";
 
-export const metadata: Metadata = { title: "Choose verification method — First Meridian" };
+export const metadata: Metadata = { title: "Choose verification method — FMB" };
 
 export default async function MfaVerifyPage() {
   // The user comes from the signed, server-side MFA challenge cookie. This page takes no URL

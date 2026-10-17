@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/transactions";
 import { BillPayClient } from "@/components/BillPayClient";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Bill Pay — First Meridian" };
+export const metadata: Metadata = { title: "Bill Pay — FMB" };
 
 function localDateInputValue(date: Date) {
   const year = date.getFullYear();

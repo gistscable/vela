@@ -15,7 +15,7 @@ async function main() {
     return;
   }
 
-  console.log("🌱 Seeding First Meridian demo accounts…");
+  console.log("🌱 Seeding FMB demo accounts…");
   if (resetDemo) {
     // Delete only the two reserved seed identities. Never clear arbitrary users or processor events.
     await db.user.deleteMany({ where: { email: { in: [...DEMO_EMAILS] } } });

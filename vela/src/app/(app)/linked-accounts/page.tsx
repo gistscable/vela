@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/transactions";
 import { LinkedAccountsClient } from "@/components/LinkedAccountsClient";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Linked Accounts — First Meridian" };
+export const metadata: Metadata = { title: "Linked Accounts — FMB" };
 
 type LinkedAccountSummary = { name: string; officialName?: string | null; mask: string; type: string; subtype?: string | null };
 

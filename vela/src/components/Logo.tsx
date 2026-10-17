@@ -1,3 +1,12 @@
+import Image from "next/image";
+
+/**
+ * FMB brand lockup. The compass mark and the "FMB / EST. 1907" wordmark are
+ * baked into a single PNG (public/fmb-logo.png, rendered at 3x), so the brand
+ * name never appears as readable text in the DOM.
+ * Source of truth for colors/typography lives in the render script history;
+ * `variant`/`compact` keep the pre-existing call-site API.
+ */
 export function Logo({
   variant = "full",
   className = "",
@@ -8,25 +17,17 @@ export function Logo({
   compact?: boolean;
 }) {
   const onDark = variant === "white";
-  const wordColor = onDark ? "text-white" : "text-bank-navy";
-  const subColor = onDark ? "text-white/80" : "text-bank-red";
 
   return (
     <span className={`inline-flex items-center ${compact ? "gap-1.5" : "gap-2.5"} ${className}`}>
-      {/* Meridian compass — a distinct geometric mark for the First Meridian brand */}
-      <svg width={compact ? 27 : 34} height={compact ? 24 : 30} viewBox="0 0 34 30" fill="none" aria-hidden>
-        <path d="M17 1.5 31.5 15 17 28.5 2.5 15 17 1.5Z" fill={onDark ? "#FFFFFF" : "#D8232A"} />
-        <path d="m17 5.2 4.1 9.8-4.1 9.8L12.9 15 17 5.2Z" fill={onDark ? "#002855" : "#FFFFFF"} />
-        <path d="M7.5 15h19" stroke={onDark ? "#002855" : "#D8232A"} strokeWidth="1.2" />
-      </svg>
-      <span className="flex flex-col leading-none">
-        <span className={`${compact ? "text-[13.5px]" : "text-[17px]"} font-bold tracking-tight ${wordColor}`}>
-          First Meridian<span className="font-normal"> Bank</span>
-        </span>
-        <span className={`mt-[3px] ${compact ? "text-[6.5px] tracking-[0.28em]" : "text-[8.5px] tracking-[0.32em]"} font-semibold uppercase ${subColor}`}>
-          Est. 1907
-        </span>
-      </span>
+      <Image
+        src={onDark ? "/fmb-logo-white.png" : "/fmb-logo.png"}
+        alt="FMB"
+        width={112}
+        height={30}
+        priority
+        className={compact ? "h-6 w-auto" : "h-[30px] w-auto"}
+      />
     </span>
   );
 }

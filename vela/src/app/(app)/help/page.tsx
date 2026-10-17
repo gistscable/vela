@@ -5,11 +5,11 @@ import { PageHeader } from "@/components/transactions";
 import { Panel } from "@/components/ui";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Help & Support — First Meridian" };
+export const metadata: Metadata = { title: "Help & Support — FMB" };
 
 const FAQS = [
   { question: "Why did I land on the sign-in page?", answer: "A protected page needs a valid session. Sign in again if your session expired. Ordinary account, activity, transfer and service links should keep you signed in; the mobile Sign out control is inside the Menu." },
-  { question: "Can I send money to another member?", answer: "Use Send money / Quick Pay to send funds to another First Meridian member. Payments appear in account activity as they are processed." },
+  { question: "Can I send money to another member?", answer: "Use Send money / Quick Pay to send funds to another FMB member. Payments appear in account activity as they are processed." },
   { question: "How can I receive money?", answer: "Use Receive money to request funds from another member. If they choose to pay, the transfer appears in account activity as it is processed." },
   { question: "How does mobile check deposit work?", answer: "Check images stay on your device. Your deposit appears in account activity as it is processed." },
   { question: "How do ACH deposits and bill payments work?", answer: "Deposit and bill payment details appear in account activity as they are processed." },
@@ -20,7 +20,7 @@ export default async function HelpPage() {
   await requireUser();
   return (
     <div>
-      <PageHeader title="Help & Support" subtitle="Answers about First Meridian services and account activity." />
+      <PageHeader title="Help & Support" subtitle="Answers about FMB services and account activity." />
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
         <Panel title="Common questions" bodyClassName="divide-y divide-gray-200 p-0">
           {FAQS.map((faq) => (

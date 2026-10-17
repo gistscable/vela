@@ -105,7 +105,7 @@ async function finishAuthenticator(page, email) {
     const selectionPaths = [
       { id: "mfa-method-sms", selected: digits.length >= 8 ? `Text message to phone ending in ${digits.slice(-4)}` : "Text message to phone (No phone number registered)", instructions: "Enter the six-digit code from your phone to verify." },
       { id: "mfa-method-email", selected: `Email code to ${expectedMaskedEmail}`, instructions: "Enter the six-digit code from your email to verify." },
-      { id: "mfa-method-app-approval", selected: "Approve in First Meridian app", instructions: "Enter the current six-digit code from your account to verify your sign-in." },
+      { id: "mfa-method-app-approval", selected: "Approve in the FMB app", instructions: "Enter the current six-digit code from your account to verify your sign-in." },
     ];
     let selectionPathsOk = true;
     for (const path of selectionPaths) {
@@ -224,7 +224,7 @@ async function main() {
   check("Mobile account home has no horizontal overflow", mobileWidth);
   check("Mobile home has monthly insights after activity", await page.getByRole("heading", { name: "This month" }).isVisible());
   check("Mobile home includes spending and quick links", await page.getByRole("heading", { name: "Spending by category" }).isVisible() && await page.getByRole("heading", { name: "Quick links" }).isVisible());
-  check("Mobile footer shows the First Meridian Bank footer", (await page.locator("footer").filter({ hasText: "First Meridian Bank" }).last().innerText()).includes("© 2026 First Meridian Bank"));
+  check("Mobile footer shows the FMB footer", (await page.locator("footer").filter({ hasText: "FMB" }).last().innerText()).includes("© 2026 FMB"));
   check("Mobile header has no easy-to-mistap sign-out", await page.getByRole("button", { name: "Sign out", exact: true }).count() === 0);
   await shot(page, "02b-mobile-dashboard");
   await page.getByRole("button", { name: "Services" }).click();

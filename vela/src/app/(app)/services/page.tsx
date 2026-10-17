@@ -15,12 +15,12 @@ import { PageHeader } from "@/components/transactions";
 import { Panel } from "@/components/ui";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Services — First Meridian" };
+export const metadata: Metadata = { title: "Services — FMB" };
 
 const SERVICES = [
   { href: "/transfer?tab=transfer", title: "Transfer between accounts", body: "Move money between your checking and savings accounts.", icon: ArrowLeftRight },
-  { href: "/transfer?tab=send", title: "Send money", body: "Send money to another First Meridian member using Quick Pay.", icon: ArrowUpRight },
-  { href: "/receive", title: "Receive money", body: "Request money from another First Meridian member.", icon: HandCoins },
+  { href: "/transfer?tab=send", title: "Send money", body: "Send money to another FMB member using Quick Pay.", icon: ArrowUpRight },
+  { href: "/receive", title: "Receive money", body: "Request money from another FMB member.", icon: HandCoins },
   { href: "/mobile-deposit", title: "Mobile deposit", body: "Submit check details for mobile deposit; images stay on your device.", icon: Camera },
   { href: "/transfer?tab=deposit", title: "Add funds from bank", body: "Add funds to your account using an available deposit option.", icon: Landmark },
   { href: "/bill-pay", title: "Bill Pay", body: "Save billers and schedule payments.", icon: ReceiptText },

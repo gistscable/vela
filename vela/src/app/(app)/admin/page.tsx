@@ -8,7 +8,7 @@ import { approveTransactionGroupAction, adminCreditAction, adminResetAuthenticat
 import { PageHeader } from "@/components/transactions";
 import { Alert, Button, Input, Panel, Select } from "@/components/ui";
 
-export const metadata: Metadata = { title: "Admin approvals — First Meridian" };
+export const metadata: Metadata = { title: "Admin approvals — FMB" };
 
 const NOTICES: Record<string, { tone: "success" | "error" | "info" | "warn"; title: string; body: string }> = {
   approved: { tone: "success", title: "Transaction approved", body: "The entry was posted to the selected account balances." },

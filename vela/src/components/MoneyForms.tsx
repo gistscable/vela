@@ -476,13 +476,13 @@ function SendForm({
             label="Recipient email"
             type="email"
             placeholder="recipient@example.com"
-            hint="Quick Pay is limited to other First Meridian member accounts."
+            hint="Quick Pay is limited to other FMB member accounts."
             required
           />
           <Input name="amount" label="Amount" inputMode="decimal" placeholder="$0.00" required />
           <Input name="memo" label="Memo (optional)" placeholder="e.g. Dinner split" maxLength={120} />
           <Button type="submit" variant="navy" size="lg" className="w-full">Review Quick Pay</Button>
-          <p className="text-[10.5px] leading-relaxed text-gray-500">Quick Pay is limited to First Meridian members.</p>
+          <p className="text-[10.5px] leading-relaxed text-gray-500">Quick Pay is limited to FMB members.</p>
         </>
       ) : (
         <>
