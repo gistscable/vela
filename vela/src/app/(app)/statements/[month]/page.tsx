@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireUser } from "@/lib/auth";
@@ -8,7 +9,7 @@ import { isAdminCreditReference, safeCounterparty, safeTransactionDescription } 
 import { PrintButton } from "@/components/PrintButton";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Statement — First Meridian Bank" };
+export const metadata: Metadata = { title: "Statement — FMB" };
 
 function statementStatusLabel(status: string) {
   if (status === "PENDING_APPROVAL" || status === "PROCESSING_APPROVAL") return "Processing · not posted";
@@ -44,9 +45,7 @@ export default async function StatementPage({
         {/* Statement letterhead */}
         <div className="flex flex-col justify-between gap-3 border-b-2 border-bank-navy px-8 pb-5 pt-7 sm:flex-row sm:items-start">
           <div>
-            <p className="text-[20px] font-bold tracking-tight text-bank-navy">
-              First Meridian<span className="font-normal"> Bank</span>
-            </p>
+            <Image src="/fmb-logo.png" alt="FMB" width={195} height={30} priority className="h-[30px] w-auto" />
             <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-bank-red">Monthly account statement</p>
           </div>
           <div className="text-right text-[12px]">
@@ -139,7 +138,7 @@ export default async function StatementPage({
           <div className="mt-8 border-t border-gray-200 pt-4">
             <p className="text-[9px] leading-relaxed text-gray-500">
               <strong className="text-gray-600">Important information about this statement:</strong> If
-              you have questions about this statement, contact First Meridian Bank. Generated on {formatDate(new Date())}.
+              you have questions about this statement, contact FMB. Generated on {formatDate(new Date())}.
             </p>
           </div>
         </div>

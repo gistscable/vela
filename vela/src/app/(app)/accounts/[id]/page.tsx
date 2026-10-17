@@ -8,7 +8,7 @@ import { Badge, Panel } from "@/components/ui";
 import { PageHeader, TransactionList } from "@/components/transactions";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Account Details — First Meridian Bank" };
+export const metadata: Metadata = { title: "Account Details — FMB" };
 
 export default async function AccountDetailPage({
   params,

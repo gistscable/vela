@@ -62,7 +62,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
 
       <footer className="border-t border-gray-200 bg-white">
         <div className="mx-auto flex max-w-[1180px] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-6 text-[10.5px] text-gray-500">
-          <span>© 2026 First Meridian Bank.</span>
+          <span>© 2026 FMB.</span>
           <span className="ml-auto">Privacy · Terms · Accessibility</span>
         </div>
       </footer>

@@ -7,7 +7,7 @@ import { PageHeader, TransactionList } from "@/components/transactions";
 import { CardControls, CardVisual } from "@/components/CardsClient";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Card Services — First Meridian Bank" };
+export const metadata: Metadata = { title: "Card Services — FMB" };
 
 export default async function CardsPage() {
   const user = await requireUser();
@@ -31,7 +31,7 @@ export default async function CardsPage() {
     <div>
       <PageHeader
         title="Card Services"
-        subtitle="Manage your First Meridian Visa® debit card."
+        subtitle="Manage your FMB Visa® debit card."
         actions={
           <Badge tone={card?.status === "FROZEN" ? "red" : "green"}>
             {card?.status === "FROZEN" ? "Locked" : "Active"}

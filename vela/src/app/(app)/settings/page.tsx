@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/transactions";
 import { PasswordForm, ProfileForm, UsernameForm } from "@/components/SettingsForms";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Customer Service & Settings — First Meridian Bank" };
+export const metadata: Metadata = { title: "Customer Service & Settings — FMB" };
 
 export default async function SettingsPage() {
   const user = await requireUser();

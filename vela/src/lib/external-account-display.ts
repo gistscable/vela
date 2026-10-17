@@ -1,4 +1,5 @@
 /** Display-safe helpers for external accounts / counterparty text. */
+import { BRAND } from "@/lib/brand";
 
 export function lastFourDigits(value: string | null | undefined): string {
   const digits = String(value ?? "").replace(/\D/g, "");
@@ -30,7 +31,7 @@ export function safeExternalNickname(value: string | null | undefined, accountTy
 
 export function safeCounterparty(value: string | null | undefined): string | null {
   if (!value) return null;
-  return clean(value, "First Meridian", 90);
+  return clean(value, "FMB", 90);
 }
 
 export function safeTransactionDescription(value: string | null | undefined): string {

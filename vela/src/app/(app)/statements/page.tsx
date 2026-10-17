@@ -7,7 +7,7 @@ import { Panel } from "@/components/ui";
 import { PageHeader } from "@/components/transactions";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Statements & Documents — First Meridian Bank" };
+export const metadata: Metadata = { title: "Statements & Documents — FMB" };
 
 export default async function StatementsPage() {
   const user = await requireUser();

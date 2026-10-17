@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/transactions";
 import { PrintButton } from "@/components/PrintButton";
 import { Panel } from "@/components/ui";
 
-export const metadata: Metadata = { title: "Transaction receipt — First Meridian" };
+export const metadata: Metadata = { title: "Transaction receipt — FMB" };
 
 const TYPE_LABELS: Record<string, string> = {
   DEPOSIT: "Deposit",
@@ -78,7 +78,7 @@ export default async function TransactionReceiptPage({ params }: { params: Promi
         )}
       />
 
-      <Panel className="print-area" title="First Meridian · Transaction record" bodyClassName="p-5 sm:p-7">
+      <Panel className="print-area" title="FMB · Transaction record" bodyClassName="p-5 sm:p-7">
         <div className="border-b border-gray-200 pb-5 text-center">
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-500">{description}</p>
           <p className="mt-2 text-[32px] font-bold tabular-nums text-bank-navy">{formatCents(transaction.amount, { sign: true })}</p>
@@ -119,7 +119,7 @@ export default async function TransactionReceiptPage({ params }: { params: Promi
             <><strong className="text-gray-800">Bill payment record.</strong> Review the status and details of this payment above.</>
           )
         ) : (
-          <><strong className="text-gray-800">First Meridian account record.</strong> Review the status and details of this transaction above.</>
+          <><strong className="text-gray-800">FMB account record.</strong> Review the status and details of this transaction above.</>
         )}
       </div>
 

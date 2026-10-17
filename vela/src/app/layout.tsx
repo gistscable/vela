@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { BRAND } from "@/lib/brand";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "First Meridian — Retail Banking",
+  title: `${BRAND.name} — Retail Banking`,
   description:
-    "Banking products and services from First Meridian Bank, including checking, savings, cards and Online Banking.",
+    `Banking products and services from ${BRAND.name}, including checking, savings, cards and Online Banking.`,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

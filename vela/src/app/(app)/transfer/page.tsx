@@ -10,7 +10,7 @@ import { stripeKeyStatus } from "@/lib/stripe";
 import { ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Transfers — First Meridian Bank" };
+export const metadata: Metadata = { title: "Transfers — FMB" };
 
 export default async function TransferPage({
   searchParams,
@@ -81,7 +81,7 @@ export default async function TransferPage({
               <ShieldCheck className="h-4 w-4 text-bank-red" /> Transfers are protected
             </h3>
             <p className="mt-1.5 text-[11.5px] leading-relaxed text-gray-600">
-              Internal transfers and Quick Pay are checked against your available balance. Quick Pay is limited to First Meridian member accounts.
+              Internal transfers and Quick Pay are checked against your available balance. Quick Pay is limited to FMB member accounts.
             </p>
           </div>
 

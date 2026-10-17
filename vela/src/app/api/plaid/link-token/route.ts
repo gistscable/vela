@@ -18,7 +18,7 @@ export async function POST() {
     const { CountryCode, Products } = await import("plaid");
     const response = await plaid.linkTokenCreate({
       user: { client_user_id: userId },
-      client_name: "First Meridian",
+      client_name: BRAND.name,
       products: [Products.Auth],
       country_codes: [CountryCode.Us],
       language: "en",

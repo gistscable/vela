@@ -109,7 +109,7 @@ const EMPLOYERS = [
   "Northstar Labs Inc.",
   "Quantum Design Co.",
   "Harborview Health",
-  "Meridian Consulting LLC",
+  "FMB Consulting LLC",
   "Brightline Technologies",
 ];
 const GROCERY = ["Whole Foods Market", "Trader Joe's", "Mariano's", "Jewel-Osco", "Aldi"];
@@ -188,7 +188,7 @@ export function generateUserHistory(userKey: string): {
     const { y, m } = months[i];
     push({
       account: "CHECKING", date: at(y, m, 14, 14), amount, type: "DEPOSIT", category: "OTHER",
-      description: pick(REFUNDS), counterparty: "First Meridian", paymentMethod: "ACH",
+      description: pick(REFUNDS), counterparty: "FMB", paymentMethod: "ACH",
     });
   });
   // Savings interest on month-end, weighted later — total $3,600 (in credits)
@@ -197,7 +197,7 @@ export function generateUserHistory(userKey: string): {
     const date = at(y, m + 1, 0, 6);
     push({
       account: "SAVINGS", date, amount, type: "INTEREST", category: "INCOME",
-      description: "Interest payment", counterparty: "First Meridian Savings", paymentMethod: "ACH",
+      description: "Interest payment", counterparty: "FMB Savings", paymentMethod: "ACH",
     });
   });
 
@@ -275,16 +275,16 @@ export function generateUserHistory(userKey: string): {
   debit(7_200_000, weeklyDates(2, 4), () => {
     const name = pick([...GROCERY, ...DINING]);
     const card = rand() > 0.5;
-    return { type: card ? "CARD_PURCHASE" : "PAYMENT", category: "FOOD", description: name, counterparty: card ? "First Meridian debit card" : "ACH debit", paymentMethod: card ? undefined : "ACH" };
+    return { type: card ? "CARD_PURCHASE" : "PAYMENT", category: "FOOD", description: name, counterparty: card ? "FMB debit card" : "ACH debit", paymentMethod: card ? undefined : "ACH" };
   }, 500);
   debit(9_600_000, weeklyDates(4, 6), () => {
     const name = pick(RETAIL);
-    return { type: "CARD_PURCHASE", category: "SHOPPING", description: name, counterparty: "First Meridian debit card" };
+    return { type: "CARD_PURCHASE", category: "SHOPPING", description: name, counterparty: "FMB debit card" };
   }, 800);
   debit(5_400_000, weeklyDates(1, 5), () => {
     const name = pick(TRANSPORT_MERCHANTS);
     const card = rand() > 0.4;
-    return { type: card ? "CARD_PURCHASE" : "PAYMENT", category: "TRANSPORT", description: name, counterparty: card ? "First Meridian debit card" : "ACH debit", paymentMethod: card ? undefined : "ACH" };
+    return { type: card ? "CARD_PURCHASE" : "PAYMENT", category: "TRANSPORT", description: name, counterparty: card ? "FMB debit card" : "ACH debit", paymentMethod: card ? undefined : "ACH" };
   }, 500);
   debit(3_200_000, months.slice(0, -1).map(({ y, m }) => at(y, m, 19, 11)), () => {
     const name = pick(HEALTH_MERCHANTS);
@@ -292,7 +292,7 @@ export function generateUserHistory(userKey: string): {
   }, 1_000);
   // Travel, roughly quarterly — $68,000
   const travelDates = months.filter((_, i) => i % 3 === 2).map(({ y, m }) => at(y, m, 14, 15));
-  debit(6_800_000, travelDates, () => ({ type: "CARD_PURCHASE", category: "ENTERTAINMENT", description: pick(["United Airlines", "Marriott Hotels", "Delta Air Lines", "Airbnb", "American Airlines"]), counterparty: "First Meridian debit card" }), 50_000);
+  debit(6_800_000, travelDates, () => ({ type: "CARD_PURCHASE", category: "ENTERTAINMENT", description: pick(["United Airlines", "Marriott Hotels", "Delta Air Lines", "Airbnb", "American Airlines"]), counterparty: "FMB debit card" }), 50_000);
   // Taxes: April filing + quarterly estimates — $118,000
   const taxDates: Date[] = [];
   for (let y = 2023; y <= 2026; y++) {
@@ -316,7 +316,7 @@ export function generateUserHistory(userKey: string): {
   }), 50_000);
   // Fees & miscellaneous on the 26th monthly — $15,537.25
   debit(1_553_725, months.slice(0, -1).map(({ y, m }) => at(y, m, 26, 10)), () => ({
-    type: "FEE", category: "OTHER", description: pick(["Wire service fee", "Account service charges", "ATM & card fees", "Miscellaneous account fee"]), counterparty: "First Meridian", paymentMethod: "ACH",
+    type: "FEE", category: "OTHER", description: pick(["Wire service fee", "Account service charges", "ATM & card fees", "Miscellaneous account fee"]), counterparty: "FMB", paymentMethod: "ACH",
   }), 200);
 
   events.sort((a, b) => a.date.getTime() - b.date.getTime());

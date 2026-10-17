@@ -4,7 +4,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 /** AES-256-GCM encryption for secrets at rest (TOTP secrets, tokens). */
 
 function key(): Buffer {
-  const material = process.env.APP_ENCRYPTION_KEY ?? process.env.AUTH_SECRET ?? "first-meridian-dev-encryption-key";
+  const material = process.env.APP_ENCRYPTION_KEY ?? process.env.AUTH_SECRET ?? "fmb-dev-encryption-key";
   return createHash("sha256").update(material).digest();
 }
 
