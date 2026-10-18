@@ -271,7 +271,7 @@ export default async function LandingPage() {
             <div className="mt-6 grid grid-cols-2 gap-4">
               {[
                 { icon: Shield, title: "Zero liability", body: "You're never responsible for unauthorized transactions." },
-                { icon: Lock, title: "Secure sign-in", body: "Multi-factor authentication and encrypted sessions." },
+                { icon: Lock, title: "Secure sign-in", body: "Multi-factor authentication, encrypted sessions, and automatic sign-out when you are idle." },
                 { icon: Phone, title: "24/7 support", body: "Real people, any time — including holidays." },
                 { icon: Users, title: "Fraud alerts", body: "Instant notifications when we spot unusual activity." },
               ].map((f) => (

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Lock, Shield } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { getSessionUserId, isSharedPreviewDemoMode } from "@/lib/auth";
+import { SESSION_IDLE_LABEL } from "@/lib/session";
 
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
   if (await isSharedPreviewDemoMode()) redirect("/dashboard");
@@ -41,8 +42,9 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
                 <Lock className="h-4 w-4 text-bank-red" /> Secure sign-in
               </h2>
               <p className="mt-2 text-[12px] leading-relaxed text-gray-600">
-                We protect your sign-in session. We&apos;ll never ask for your full password, PIN,
-                or Social Security number by email or text.
+                We protect your sign-in session and sign you out after {SESSION_IDLE_LABEL} of
+                inactivity. We&apos;ll never ask for your full password, PIN, or Social Security
+                number by email or text.
               </p>
             </div>
             <div className="border border-gray-300 bg-white p-5 shadow-panel">

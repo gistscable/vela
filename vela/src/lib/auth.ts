@@ -1,8 +1,9 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { SignJWT, jwtVerify } from "jose";
+import { SignJWT, jwtVerify, errors as joseErrors } from "jose";
 import { db, type User } from "@/lib/db";
+import { SESSION_IDLE_NOTICE, SESSION_IDLE_SECONDS } from "@/lib/session";
 
 export const SESSION_COOKIE = "fmb_session_v2";
 const MFA_COOKIE = "fmb_mfa_challenge";
@@ -33,9 +34,24 @@ async function verify(token: string | undefined): Promise<Record<string, any> | 
   }
 }
 
+type SessionRead = { sub: string } | "expired" | null;
+
+async function readSession(): Promise<SessionRead> {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, secret());
+    if (payload.kind !== "session" || typeof payload.sub !== "string") return null;
+    return { sub: payload.sub };
+  } catch (error) {
+    if (error instanceof joseErrors.JWTExpired) return "expired";
+    return null;
+  }
+}
+
 export async function setSessionCookie(userId: string): Promise<void> {
-  const token = await sign({ sub: userId, kind: "session" }, "7d");
-  (await cookies()).set(SESSION_COOKIE, token, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 7 });
+  const token = await sign({ sub: userId, kind: "session" }, `${SESSION_IDLE_SECONDS}s`);
+  (await cookies()).set(SESSION_COOKIE, token, { httpOnly: true, sameSite: "lax", path: "/", maxAge: SESSION_IDLE_SECONDS });
 }
 
 export async function setMfaChallengeCookie(userId: string, stage: "setup" | "verify"): Promise<void> {
@@ -50,9 +66,9 @@ export async function clearAuthCookies(): Promise<void> {
 }
 
 export async function getSessionUserId(): Promise<string | null> {
-  const payload = await verify((await cookies()).get(SESSION_COOKIE)?.value);
-  if (!payload || payload.kind !== "session" || typeof payload.sub !== "string") return null;
-  return payload.sub;
+  const session = await readSession();
+  if (!session || session === "expired") return null;
+  return session.sub;
 }
 
 /** Session user, or the shared demo user in shared-preview mode. */
@@ -68,9 +84,13 @@ export async function requireUser(): Promise<User> {
     const demo = await sharedDemoUser();
     if (demo) return demo;
   }
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
-  const user = await db.user.findUnique({ where: { id: userId } });
+  const session = await readSession();
+  if (session === "expired") {
+    await clearAuthCookies();
+    redirect(`/login?notice=${SESSION_IDLE_NOTICE}`);
+  }
+  if (!session) redirect("/login");
+  const user = await db.user.findUnique({ where: { id: session.sub } });
   if (!user || user.enrollmentStatus !== "APPROVED") redirect("/login");
   if (user.accessLocked) {
     await clearAuthCookies();

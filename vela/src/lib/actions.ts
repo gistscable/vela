@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { clearAuthCookies, getMfaChallenge, requireUser, setMfaChallengeCookie, setSessionCookie } from "@/lib/auth";
+import { clearAuthCookies, getMfaChallenge, getSessionUserId, requireUser, setMfaChallengeCookie, setSessionCookie } from "@/lib/auth";
 import { decryptSensitive, encryptSensitive } from "@/lib/sensitive";
 import { generateTotpSecret, verifyTotp } from "@/lib/totp";
 import { parseCents } from "@/lib/money";
@@ -107,6 +107,25 @@ export async function signupAction(_prev: ActionState, fd: FormData): Promise<Ac
 export async function logoutAction(): Promise<void> {
   await clearAuthCookies();
   redirect("/login");
+}
+
+/** Sliding idle session: refresh JWT + cookie while the member is active. */
+export async function touchSessionAction(): Promise<{ ok: boolean }> {
+  const userId = await getSessionUserId();
+  if (!userId) return { ok: false };
+  const user = await db.user.findUnique({ where: { id: userId } });
+  if (!user || user.enrollmentStatus !== "APPROVED" || user.accessLocked) {
+    await clearAuthCookies();
+    return { ok: false };
+  }
+  await setSessionCookie(user.id);
+  return { ok: true };
+}
+
+/** Clear the session after the idle watchdog fires. The client then sends the member to sign-in. */
+export async function expireIdleSessionAction(): Promise<{ ok: true }> {
+  await clearAuthCookies();
+  return { ok: true };
 }
 
 async function challengeUser(stage: "setup" | "verify") {

@@ -3,12 +3,13 @@ import { BookOpen, CircleHelp, MessageCircleQuestion } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { PageHeader } from "@/components/transactions";
 import { Panel } from "@/components/ui";
+import { SESSION_IDLE_LABEL } from "@/lib/session";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Help & Support — FMB" };
 
 const FAQS = [
-  { question: "Why did I land on the sign-in page?", answer: "A protected page needs a valid session. Sign in again if your session expired. Ordinary account, activity, transfer and service links should keep you signed in; the mobile Sign out control is inside the Menu." },
+  { question: "Why did I land on the sign-in page?", answer: `A protected page needs a valid session. For your protection we sign you out after ${SESSION_IDLE_LABEL} of inactivity, and you will need to sign in again. Ordinary account, activity, transfer and service links keep you signed in while you are using them; the mobile Sign out control is inside the Menu.` },
   { question: "Can I send money to another member?", answer: "Use Send money / Quick Pay to send funds to another FMB member. Payments appear in account activity as they are processed." },
   { question: "How can I receive money?", answer: "Use Receive money to request funds from another member. If they choose to pay, the transfer appears in account activity as it is processed." },
   { question: "How does mobile check deposit work?", answer: "Check images stay on your device. Your deposit appears in account activity as it is processed." },

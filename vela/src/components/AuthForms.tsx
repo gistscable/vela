@@ -3,9 +3,10 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { loginAction, signupAction, type ActionState } from "@/lib/actions";
+import { SESSION_IDLE_LABEL, SESSION_IDLE_NOTICE } from "@/lib/session";
 import { Alert, Button, Input, PasswordInput } from "./ui";
 
-export function LoginForm() {
+export function LoginForm({ notice }: { notice?: string } = {}) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(loginAction, null);
   return (
     <div className="border border-gray-300 bg-white shadow-panel">
@@ -16,6 +17,11 @@ export function LoginForm() {
         </p>
       </div>
       <form action={formAction} className="space-y-4 px-6 py-6">
+        {notice === SESSION_IDLE_NOTICE && (
+          <Alert tone="info" title="Signed out for security">
+            You were signed out after {SESSION_IDLE_LABEL} of inactivity. Sign in again to continue.
+          </Alert>
+        )}
         {state?.error && <Alert tone="error" title="Sign-in error">{state.error}</Alert>}
         <Input
           id="login-username"

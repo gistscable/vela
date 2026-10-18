@@ -30,8 +30,8 @@ export function middleware(req: NextRequest) {
   if (previewHostHeaders.some(isE2bPreviewHost)) return NextResponse.next();
 
   // Gate quickly on cookie presence here. The server-only requireUser() verifies the JWT
-  // with the runtime AUTH_SECRET, avoiding a second (potentially build-time-inlined) copy
-  // of the secret in the Edge middleware bundle.
+  // with the runtime AUTH_SECRET (and treats an expired idle session as signed out),
+  // avoiding a second (potentially build-time-inlined) copy of the secret in the Edge bundle.
   const token = req.cookies.get("fmb_session_v2")?.value;
   if (token) return NextResponse.next();
 
