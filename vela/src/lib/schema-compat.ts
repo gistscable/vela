@@ -147,7 +147,9 @@ const FIELD_DEFAULTS: Record<string, AnyRecord> = {
 };
 
 const READ_METHODS = new Set(["findMany", "findFirst", "findUnique", "findUniqueOrThrow", "count"]);
-const MAX_RETRIES = 8;
+/** Writes that return a row (and therefore select every column) — see header. */
+const ROW_RETURNING_WRITE_METHODS = new Set(["create", "update", "upsert", "delete"]);
+const MAX_RETRIES = 32;
 
 function isPlainObject(value: unknown): value is AnyRecord {
   return typeof value === "object" && value !== null && !Array.isArray(value) && !(value instanceof Date);
@@ -163,29 +165,36 @@ function cloneValue<T>(value: T): T {
   return value;
 }
 
-function errorText(error: unknown): string {
-  if (!error || typeof error !== "object") return String(error ?? "");
+function errorText(error: unknown, depth = 0): string {
+  if (!error || typeof error !== "object" || depth > 4) return String(error ?? "");
   const err = error as AnyRecord;
   const parts = [typeof err.message === "string" ? err.message : "", typeof err.code === "string" ? err.code : ""];
   if (isPlainObject(err.meta)) {
     for (const value of Object.values(err.meta)) if (typeof value === "string") parts.push(value);
   }
+  // Driver-adapter / engine errors sometimes nest the original Postgres error.
+  if (err.cause && err.cause !== error) parts.push(errorText(err.cause, depth + 1));
   return parts.join(" ");
 }
+
+/** Prisma P2021/P2022, raw Postgres 42703 (undefined column) / 42P01 (undefined table). */
+const MISSING_SCHEMA_CODES = new Set(["P2021", "P2022", "42703", "42P01"]);
 
 /** True for Prisma P2021/P2022 and equivalent "column/table does not exist" errors. */
 export function isMissingSchemaError(error: unknown): boolean {
   const err = error as AnyRecord | null;
-  if (err && (err.code === "P2021" || err.code === "P2022")) return true;
+  if (err && typeof err.code === "string" && MISSING_SCHEMA_CODES.has(err.code)) return true;
+  if (err && typeof (err.cause as AnyRecord | null)?.code === "string" && MISSING_SCHEMA_CODES.has((err.cause as AnyRecord).code)) return true;
   const text = errorText(error);
+  if (/\b(42703|42P01)\b/.test(text)) return true;
   return /does not exist/i.test(text) && /(column|table|relation)/i.test(text);
 }
 
 /** True when the error is about a missing table (Prisma P2021) rather than a column. */
 export function isMissingTableError(error: unknown): boolean {
   const err = error as AnyRecord | null;
-  if (err && err.code === "P2021") return true;
-  if (err && err.code === "P2022") return false;
+  if (err && (err.code === "P2021" || err.code === "42P01")) return true;
+  if (err && (err.code === "P2022" || err.code === "42703")) return false;
   const text = errorText(error);
   return /does not exist/i.test(text) && /(table|relation)/i.test(text) && !/column/i.test(text);
 }
@@ -194,8 +203,13 @@ export function isMissingTableError(error: unknown): boolean {
 export function missingColumnFromError(error: unknown): string | null {
   const err = error as AnyRecord | null;
   // Prisma reports the column in `meta.column` (e.g. "User.accessLocked").
-  if (isPlainObject(err?.meta) && typeof err.meta.column === "string") {
-    const bare = /([A-Za-z_]\w*)$/.exec(err.meta.column.trim());
+  const metaColumn = isPlainObject(err?.meta) && typeof err.meta.column === "string"
+    ? err.meta.column
+    : isPlainObject((err?.cause as AnyRecord | null)?.meta) && typeof (err!.cause as AnyRecord).meta.column === "string"
+      ? ((err!.cause as AnyRecord).meta.column as string)
+      : null;
+  if (metaColumn) {
+    const bare = /([A-Za-z_]\w*)$/.exec(metaColumn.trim());
     if (bare) return bare[1];
   }
   const match =
@@ -376,63 +390,127 @@ function emptyResultFor(method: string): unknown {
   return null; // findFirst / findUnique / findUniqueOrThrow: no rows to give
 }
 
+/**
+ * Does this write's data itself reference a field the old database does not
+ * have? Then the write genuinely needs the new schema and must not be masked
+ * by stripping the field (an admin lock must never become a silent no-op).
+ */
+function writeDataReferencesMissingField(args: unknown, model: string, extraRemoved: ReadonlySet<string>): boolean {
+  if (!isPlainObject(args)) return false;
+  const removed = removedFieldsFor(model, extraRemoved);
+  const payloads = [args.data, args.create, args.update].filter(isPlainObject);
+  return payloads.some((payload) => Object.keys(payload).some((field) => removed.has(field)));
+}
+
+/**
+ * Call `fn(args)`, and on a missing-column error retry with sanitized args
+ * (legacy select, new fields stripped). The loop continues because a
+ * different (nested, or not-yet-listed) column may be reported per attempt;
+ * it stops if sanitizing stops changing the args. Missing-table errors for
+ * `ProductApplication` reads are handled by the caller (`onMissingTable`).
+ */
+async function callWithMissingSchemaRetry(
+  fn: (args: unknown) => Promise<unknown>,
+  firstArgs: unknown,
+  model: string,
+  opts: { injectSelect: boolean; initialError?: unknown; onMissingTable?: () => unknown; isWrite?: boolean },
+): Promise<unknown> {
+  let lastError: unknown = opts.initialError;
+  if (lastError === undefined) {
+    try {
+      return await fn(firstArgs);
+    } catch (error) {
+      if (!isMissingSchemaError(error)) throw error;
+      if (isMissingTableError(error)) {
+        if (opts.onMissingTable) return opts.onMissingTable();
+        throw error;
+      }
+      lastError = error;
+    }
+  }
+  const extraRemoved = new Set<string>();
+  let previousSanitizedJson = "";
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const field = missingColumnFromError(lastError);
+    if (field) extraRemoved.add(field);
+    // For writes, discovering that the data itself needs a missing field
+    // (possibly only revealed by a later error) ends the retry: stripping
+    // write data silently would lose information.
+    if (opts.isWrite && writeDataReferencesMissingField(firstArgs, model, extraRemoved)) throw lastError;
+    const sanitized = sanitizeModelArgs(firstArgs, model, extraRemoved, opts.injectSelect);
+    const sanitizedJson = JSON.stringify(sanitized) ?? "";
+    if (sanitizedJson === previousSanitizedJson) break;
+    previousSanitizedJson = sanitizedJson;
+    try {
+      return await fn(sanitized);
+    } catch (retryError) {
+      if (!isMissingSchemaError(retryError)) throw retryError;
+      if (isMissingTableError(retryError)) {
+        if (opts.onMissingTable) return opts.onMissingTable();
+        throw retryError;
+      }
+      lastError = retryError;
+    }
+  }
+  throw lastError;
+}
+
 function wrapDelegate<T extends object>(delegate: T, model: string, delegateName: string): T {
   return new Proxy(delegate, {
     get(target, prop, receiver) {
       const value = Reflect.get(target, prop, receiver);
-      if (typeof value !== "function" || typeof prop !== "string" || !READ_METHODS.has(prop)) {
+      if (typeof value !== "function" || typeof prop !== "string") {
         return typeof value === "function" ? value.bind(target) : value;
       }
       const method = prop;
-      return async (...args: unknown[]) => {
-        try {
-          return withSchemaDefaults(await value.apply(target, args), model);
-        } catch (error) {
-          if (!isMissingSchemaError(error)) throw error;
-          if (isMissingTableError(error)) {
-            if (model === "ProductApplication" || delegateName === "productApplication") {
-              return emptyResultFor(method);
-            }
-            throw error;
+      if (READ_METHODS.has(method)) {
+        return async (...args: unknown[]) => {
+          const result = await callWithMissingSchemaRetry(
+            (callArgs) => value.apply(target, args.length > 0 ? [callArgs, ...args.slice(1)] : [callArgs]),
+            args[0],
+            model,
+            {
+              injectSelect: method !== "count",
+              onMissingTable:
+                model === "ProductApplication" || delegateName === "productApplication"
+                  ? () => emptyResultFor(method)
+                  : undefined,
+            },
+          );
+          return withSchemaDefaults(result, model);
+        };
+      }
+      if (ROW_RETURNING_WRITE_METHODS.has(method)) {
+        return async (...args: unknown[]) => {
+          try {
+            return withSchemaDefaults(await value.apply(target, args), model);
+          } catch (error) {
+            if (!isMissingSchemaError(error) || isMissingTableError(error)) throw error;
+            // Only the returned row needs columns the data does not: retry
+            // with a legacy select. If the data itself writes a missing
+            // field, fail loudly instead of silently dropping it.
+            if (writeDataReferencesMissingField(args[0], model, new Set())) throw error;
+            const result = await callWithMissingSchemaRetry(
+              (callArgs) => value.apply(target, args.length > 0 ? [callArgs, ...args.slice(1)] : [callArgs]),
+              args[0],
+              model,
+              { injectSelect: true, initialError: error, isWrite: true },
+            );
+            return withSchemaDefaults(result, model);
           }
-          // Missing column(s): retry without the post-migration fields. Loop
-          // because a different (e.g. nested or not-yet-listed) column may be
-          // reported on the next attempt; each pass removes at least the field
-          // named by the latest error in addition to the known new fields.
-          const extraRemoved = new Set<string>();
-          let lastError: unknown = error;
-          for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-            const field = missingColumnFromError(lastError);
-            if (field) extraRemoved.add(field);
-            const sanitized = sanitizeModelArgs(args[0], model, extraRemoved, method !== "count");
-            const retryArgs = args.length > 0 ? [sanitized, ...args.slice(1)] : [sanitized];
-            try {
-              return withSchemaDefaults(await value.apply(target, retryArgs), model);
-            } catch (retryError) {
-              if (!isMissingSchemaError(retryError)) throw retryError;
-              if (isMissingTableError(retryError)) {
-                if (model === "ProductApplication" || delegateName === "productApplication") {
-                  return emptyResultFor(method);
-                }
-                throw retryError;
-              }
-              const nextField = missingColumnFromError(retryError);
-              if (nextField && extraRemoved.has(nextField) && attempt > 0 && nextField === field) throw retryError;
-              lastError = retryError;
-            }
-          }
-          throw lastError;
-        }
-      };
+        };
+      }
+      return value.bind(target);
     },
   });
 }
 
 /**
- * Wrap a Prisma-like client so reads tolerate a database that is missing the
- * post-migration columns/table described above. Non-read methods, `$transaction`
- * callbacks (whose transaction client is wrapped in turn) and everything else
- * pass through untouched.
+ * Wrap a Prisma-like client so reads (and row-returning writes whose data
+ * only touches old columns) tolerate a database that is missing the
+ * post-migration columns/table described above. Count-returning writes,
+ * `$transaction` handling (whose transaction client is wrapped in turn) and
+ * everything else pass through untouched.
  */
 export function wrapPrismaForMissingSchema<T>(client: T): T {
   if (!client || typeof client !== "object") return client;
