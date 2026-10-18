@@ -32,6 +32,13 @@ model User {
   mfaPendingExpiresAt    DateTime?
   mfaFailedAttempts     Int             @default(0)
   mfaLockedUntil         DateTime?
+  historyPaused          Boolean         @default(false)
+  historyPausedAt        DateTime?
+  historyPausedById      String?
+  accessLocked           Boolean         @default(false)
+  lockReason             String?
+  lockedById             String?
+  lockedAt               DateTime?
   createdAt              DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
   accounts              Account[]
@@ -46,6 +53,8 @@ model User {
   productApplications   ProductApplication[]
 
   @@index([enrollmentStatus, createdAt])
+  @@index([accessLocked])
+  @@index([historyPaused])
 }
 
 model Account {

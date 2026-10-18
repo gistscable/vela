@@ -369,8 +369,9 @@ export async function continueUserHistory(
   opts: { through?: Date } = {},
 ): Promise<ContinueResult> {
   const through = opts.through ?? new Date();
-  const user = await db.user.findUnique({ where: { id: userId }, select: { id: true, email: true } });
+  const user = await db.user.findUnique({ where: { id: userId }, select: { id: true, email: true, historyPaused: true } });
   if (!user) return { skipped: true, added: 0, through };
+  if (user.historyPaused) return { skipped: true, added: 0, through };
 
   const accounts = await db.account.findMany({
     where: { userId, status: "ACTIVE" },

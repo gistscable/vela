@@ -30,6 +30,8 @@ export type User = {
   mfaEnabled: boolean; totpSecretEncrypted: string | null; totpLastUsedStep: number | null;
   mfaPendingSecretEncrypted: string | null; mfaPendingExpiresAt: Date | null;
   mfaFailedAttempts: number; mfaLockedUntil: Date | null;
+  historyPaused: boolean; historyPausedAt: Date | null; historyPausedById: string | null;
+  accessLocked: boolean; lockReason: string | null; lockedById: string | null; lockedAt: Date | null;
   createdAt: Date; updatedAt: Date;
 };
 export type Card = { id: string; accountId: string; last4: string; brand: string; kind: string; status: string; dailyLimit: number; spentToday: number; creditLimit: number | null; createdAt: Date };
@@ -104,8 +106,9 @@ function getSqlite(): any {
 const DATE_FIELDS = new Set([
   "createdAt", "updatedAt", "scheduledFor", "reviewedAt", "verifiedAt", "paidAt",
   "enrollmentReviewedAt", "mfaPendingExpiresAt", "mfaLockedUntil", "microdepositExpiresAt",
+  "historyPausedAt", "lockedAt",
 ]);
-const BOOL_FIELDS = new Set(["mfaEnabled"]);
+const BOOL_FIELDS = new Set(["mfaEnabled", "historyPaused", "accessLocked"]);
 const MODELS: Record<string, string> = {
   user: "User", account: "Account", transaction: "Transaction", card: "Card",
   payee: "Payee", billPayee: "BillPayee", billPayment: "BillPayment",
@@ -304,7 +307,7 @@ function findOneRaw(table: string, where: any): any | null {
 }
 
 const DEFAULTS: Record<string, Record<string, unknown>> = {
-  User: { role: "CUSTOMER", enrollmentStatus: "APPROVED", mfaEnabled: 0, mfaFailedAttempts: 0 },
+  User: { role: "CUSTOMER", enrollmentStatus: "APPROVED", mfaEnabled: 0, mfaFailedAttempts: 0, historyPaused: 0, accessLocked: 0 },
   Account: { status: "ACTIVE", balance: 0 },
   Transaction: { status: "COMPLETED" },
   Card: { brand: "Visa", kind: "DEBIT", status: "ACTIVE", dailyLimit: 50000, spentToday: 0 },

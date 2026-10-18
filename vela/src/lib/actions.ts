@@ -40,6 +40,10 @@ export async function loginAction(_prev: ActionState, fd: FormData): Promise<Act
   }
   if (user.enrollmentStatus === "PENDING_APPROVAL") return { error: "Your enrollment is being processed. Please try signing in again later." };
   if (user.enrollmentStatus !== "APPROVED") return { error: "This enrollment is not active. Please contact support." };
+  if (user.accessLocked) {
+    const reason = (user.lockReason ?? "").trim();
+    return { error: reason ? `This account is locked. ${reason}` : "This account is locked. Contact support." };
+  }
   if (user.mfaLockedUntil && user.mfaLockedUntil > new Date()) {
     return { error: "Too many incorrect authenticator codes. Try again in a few minutes." };
   }
@@ -113,8 +117,16 @@ async function challengeUser(stage: "setup" | "verify") {
   return user;
 }
 
+function lockedAccountError(user: { accessLocked?: boolean; lockReason?: string | null }): ActionState | null {
+  if (!user.accessLocked) return null;
+  const reason = (user.lockReason ?? "").trim();
+  return { error: reason ? `This account is locked. ${reason}` : "This account is locked. Contact support." };
+}
+
 export async function completeTotpSetupAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const user = await challengeUser("setup");
+  const locked = lockedAccountError(user);
+  if (locked) return locked;
   if (!user.mfaPendingSecretEncrypted || !user.mfaPendingExpiresAt || user.mfaPendingExpiresAt <= new Date()) {
     return { error: "This setup session has expired. Sign in again to restart setup." };
   }
@@ -140,6 +152,8 @@ export async function completeTotpSetupAction(_prev: ActionState, fd: FormData):
 
 export async function verifyTotpLoginAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const user = await challengeUser("verify");
+  const locked = lockedAccountError(user);
+  if (locked) return locked;
   if (user.mfaLockedUntil && user.mfaLockedUntil > new Date()) return { error: "Too many incorrect codes. Try again in a few minutes." };
   if (!user.totpSecretEncrypted) return { error: "Authenticator is not set up for this user." };
   let secret: string;

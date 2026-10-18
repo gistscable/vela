@@ -4,10 +4,10 @@ import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatCents, formatDateTime } from "@/lib/money";
 import { paymentMethodLabel, safeCounterparty, safeTransactionDescription } from "@/lib/external-account-display";
-import { approveTransactionGroupAction, adminCreditAction, adminResetAuthenticatorAction, rejectTransactionGroupAction, reviewEnrollmentAction, reviewExternalAccountAction, reviewProductApplicationAction } from "@/lib/admin-actions";
+import { approveTransactionGroupAction, adminCreditAction, adminDeleteActivityAction, adminLockUserAction, adminPauseHistoryAction, adminResetAuthenticatorAction, adminUnlockUserAction, rejectTransactionGroupAction, reviewEnrollmentAction, reviewExternalAccountAction, reviewProductApplicationAction } from "@/lib/admin-actions";
 import { accountTypeLabel, productByCode, productKindLabel } from "@/lib/products";
 import { PageHeader } from "@/components/transactions";
-import { Alert, Button, Input, Panel, Select } from "@/components/ui";
+import { Alert, Button, Input, Panel, Select, Textarea } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Admin approvals — FMB" };
 
@@ -41,13 +41,25 @@ const NOTICES: Record<string, { tone: "success" | "error" | "info" | "warn"; tit
   "product-rejected": { tone: "info", title: "Product application rejected", body: "No account or card was issued." },
   "product-unavailable": { tone: "info", title: "Application already reviewed", body: "That product application is no longer awaiting a decision." },
   "product-card-exists": { tone: "error", title: "Card already issued", body: "That checking account already has a debit card. The application was not changed." },
+  "history-paused": { tone: "success", title: "Generated history paused", body: "New pattern debits and credits will not post to this customer's accounts until you resume them." },
+  "history-resumed": { tone: "success", title: "Generated history resumed", body: "The same debit and credit pattern will keep posting on this customer's accounts." },
+  "locked": { tone: "success", title: "Account locked", body: "The customer cannot sign in. They will see the reason you entered." },
+  "unlocked": { tone: "success", title: "Account unlocked", body: "The customer can sign in again." },
+  "lock-reason": { tone: "error", title: "Lock reason required", body: "Enter a reason between 8 and 280 characters so the customer knows why access was locked." },
+  "lock-confirm": { tone: "error", title: "Confirmation required", body: "Confirm the lockout before restricting this customer's access." },
+  "lock-self": { tone: "error", title: "Cannot lock this user", body: "Administrators cannot lock their own access." },
+  "customer-unavailable": { tone: "info", title: "Customer not updated", body: "That customer is no longer available for this action." },
+  "activity-deleted": { tone: "success", title: "Activity deleted", body: "The selected entry was removed and the account balance was rebuilt from remaining posted activity." },
+  "activity-confirm": { tone: "error", title: "Confirmation required", body: "Confirm deletion before removing activity. This cannot be undone." },
+  "activity-unavailable": { tone: "info", title: "Activity not deleted", body: "That entry is no longer on the account." },
 };
 
-export default async function AdminPage({ searchParams }: { searchParams: Promise<{ notice?: string }> }) {
+export default async function AdminPage({ searchParams }: { searchParams: Promise<{ notice?: string; account?: string }> }) {
   const admin = await requireAdmin();
   const params = await searchParams;
   const today = new Date().toISOString().slice(0, 10);
-  const [pendingRows, accounts, externalAccounts, enrollmentApplications, productApplications, authenticatorUsers] = await Promise.all([
+  const selectedAccountId = String(params.account ?? "").trim();
+  const [pendingRows, accounts, allCustomerAccounts, externalAccounts, enrollmentApplications, productApplications, authenticatorUsers, customers, activityRows] = await Promise.all([
     db.transaction.findMany({
       where: { status: "PENDING_APPROVAL" },
       include: { account: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } } } },
@@ -55,6 +67,11 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     }),
     db.account.findMany({
       where: { status: "ACTIVE", user: { role: "CUSTOMER", enrollmentStatus: "APPROVED" } },
+      include: { user: { select: { firstName: true, lastName: true } } },
+      orderBy: [{ user: { lastName: "asc" } }, { name: "asc" }],
+    }),
+    db.account.findMany({
+      where: { user: { role: "CUSTOMER" } },
       include: { user: { select: { firstName: true, lastName: true } } },
       orderBy: [{ user: { lastName: "asc" } }, { name: "asc" }],
     }),
@@ -82,6 +99,20 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
       orderBy: [{ role: "asc" }, { lastName: "asc" }, { firstName: "asc" }],
       take: 100,
     }),
+    db.user.findMany({
+      where: { role: "CUSTOMER", enrollmentStatus: "APPROVED" },
+      select: { id: true, email: true, firstName: true, lastName: true, historyPaused: true, historyPausedAt: true, accessLocked: true, lockReason: true, lockedAt: true },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      take: 100,
+    }),
+    selectedAccountId
+      ? db.transaction.findMany({
+          where: { accountId: selectedAccountId },
+          include: { account: { include: { user: { select: { firstName: true, lastName: true, email: true } } } } },
+          orderBy: { createdAt: "desc" },
+          take: 75,
+        })
+      : Promise.resolve([]),
   ]);
   type PendingRow = (typeof pendingRows)[number];
   type PendingGroup = { key: string; rows: PendingRow[]; createdAt: Date };
@@ -229,6 +260,103 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         <div className="border-t border-gray-200 bg-gray-50 px-4 py-2.5 text-[10px] leading-relaxed text-gray-600">
           There is no email or SMS recovery code. After a reset, the user must enroll a new authenticator at next sign-in.
         </div>
+      </Panel>
+
+      <Panel title={`Customer access & generated history · ${customers.length}`} bodyClassName="p-0">
+        {customers.length === 0 ? (
+          <div className="px-5 py-6 text-center text-[11px] text-gray-500">No approved customers to manage.</div>
+        ) : (
+          <div className="divide-y divide-gray-200">
+            {customers.map((customer) => (
+              <article key={customer.id} className="px-4 py-4 sm:px-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[12.5px] font-bold text-gray-900">{customer.firstName} {customer.lastName} · {customer.email}</p>
+                    <p className="mt-1 flex flex-wrap gap-1.5 text-[10px]">
+                      <span className={`border px-1.5 py-0.5 font-bold uppercase ${customer.historyPaused ? "border-amber-300 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
+                        History {customer.historyPaused ? "paused" : "running"}
+                      </span>
+                      <span className={`border px-1.5 py-0.5 font-bold uppercase ${customer.accessLocked ? "border-red-300 bg-red-50 text-red-900" : "border-gray-200 bg-gray-50 text-gray-700"}`}>
+                        {customer.accessLocked ? "Locked" : "Access open"}
+                      </span>
+                    </p>
+                    {customer.accessLocked && customer.lockReason ? (
+                      <p className="mt-2 max-w-xl text-[11px] leading-relaxed text-gray-700">Lock reason: {customer.lockReason}</p>
+                    ) : null}
+                  </div>
+                  <form action={adminPauseHistoryAction}>
+                    <input type="hidden" name="userId" value={customer.id} />
+                    <input type="hidden" name="paused" value={customer.historyPaused ? "no" : "yes"} />
+                    <Button type="submit" variant="outline" size="sm">{customer.historyPaused ? "Resume history" : "Pause history"}</Button>
+                  </form>
+                </div>
+                {customer.accessLocked ? (
+                  <form action={adminUnlockUserAction} className="mt-3">
+                    <input type="hidden" name="userId" value={customer.id} />
+                    <Button type="submit" variant="navy" size="sm">Unlock account</Button>
+                  </form>
+                ) : (
+                  <form action={adminLockUserAction} className="mt-3 space-y-2">
+                    <input type="hidden" name="userId" value={customer.id} />
+                    <Textarea name="lockReason" label="Lockout reason" placeholder="Suspicious login attempts from an unrecognized device." required minLength={8} maxLength={280} />
+                    <label className="flex items-start gap-2 text-[10.5px] leading-relaxed text-gray-600">
+                      <input type="checkbox" name="confirm" value="yes" required className="mt-0.5 h-3.5 w-3.5 accent-[#b3202e]" />
+                      Lock this customer out of online banking. They will see this reason at sign-in.
+                    </label>
+                    <Button type="submit" variant="outline" size="sm">Lock account</Button>
+                  </form>
+                )}
+              </article>
+            ))}
+          </div>
+        )}
+      </Panel>
+
+      <Panel title="Delete account activity" bodyClassName="p-0">
+        <div className="border-b border-gray-100 px-4 py-3 sm:px-5">
+          <p className="text-[11px] leading-relaxed text-gray-600">Remove a posted or pending entry from any customer account. Posted balances are rebuilt from what remains. Linked internal transfers and Quick Pay pairs are removed together.</p>
+          <form method="get" action="/admin" className="mt-3 flex flex-wrap items-end gap-2">
+            <div className="min-w-[260px] flex-1">
+              <Select name="account" label="Customer account" defaultValue={selectedAccountId} required>
+                <option value="" disabled>Select an account</option>
+                {allCustomerAccounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.user.firstName} {account.user.lastName} — {account.name} · {accountTypeLabel(account.type)} · {account.accountNumber.slice(-4)}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <Button type="submit" variant="navy" size="sm">View activity</Button>
+          </form>
+        </div>
+        {!selectedAccountId ? (
+          <p className="px-5 py-6 text-center text-[11px] text-gray-500">Choose an account to review and delete activity.</p>
+        ) : activityRows.length === 0 ? (
+          <p className="px-5 py-6 text-center text-[11px] text-gray-500">No activity on this account.</p>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {activityRows.map((row) => (
+              <article key={row.id} className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 sm:px-5">
+                <div className="min-w-0">
+                  <p className="text-[12px] font-semibold text-gray-900">{safeTransactionDescription(row.description)}</p>
+                  <p className="mt-0.5 text-[10.5px] text-gray-500">
+                    {formatDateTime(row.createdAt)} · {row.status.replaceAll("_", " ")} · {formatCents(row.amount, { sign: true })}
+                    {row.counterparty ? ` · ${safeCounterparty(row.counterparty)}` : ""}
+                  </p>
+                </div>
+                <form action={adminDeleteActivityAction} className="flex flex-wrap items-center gap-2">
+                  <input type="hidden" name="transactionId" value={row.id} />
+                  <input type="hidden" name="accountId" value={selectedAccountId} />
+                  <label className="flex items-center gap-1.5 text-[9.5px] text-gray-600">
+                    <input type="checkbox" name="confirm" value="yes" required className="h-3.5 w-3.5 accent-[#b3202e]" />
+                    Delete this entry
+                  </label>
+                  <Button type="submit" variant="outline" size="sm">Delete</Button>
+                </form>
+              </article>
+            ))}
+          </div>
+        )}
       </Panel>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.85fr)]">

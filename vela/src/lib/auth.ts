@@ -72,6 +72,10 @@ export async function requireUser(): Promise<User> {
   if (!userId) redirect("/login");
   const user = await db.user.findUnique({ where: { id: userId } });
   if (!user || user.enrollmentStatus !== "APPROVED") redirect("/login");
+  if (user.accessLocked) {
+    await clearAuthCookies();
+    redirect("/login");
+  }
   return user;
 }
 

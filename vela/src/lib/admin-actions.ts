@@ -489,3 +489,124 @@ export async function adminCreditAction(formData: FormData) {
   refreshApprovalViews();
   redirect("/admin?notice=credit-submitted");
 }
+
+export async function adminPauseHistoryAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const userId = String(formData.get("userId") ?? "").trim();
+  const paused = String(formData.get("paused") ?? "") === "yes";
+  if (!userId) redirect("/admin?notice=customer-unavailable");
+  const result = await db.user.updateMany({
+    where: { id: userId, role: "CUSTOMER" },
+    data: {
+      historyPaused: paused,
+      historyPausedAt: paused ? new Date() : null,
+      historyPausedById: paused ? admin.id : null,
+    },
+  });
+  if (result.count !== 1) redirect("/admin?notice=customer-unavailable");
+  refreshApprovalViews();
+  redirect(paused ? "/admin?notice=history-paused" : "/admin?notice=history-resumed");
+}
+
+export async function adminLockUserAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const userId = String(formData.get("userId") ?? "").trim();
+  const reason = String(formData.get("lockReason") ?? "").replace(/\s+/g, " ").trim();
+  if (!userId) redirect("/admin?notice=customer-unavailable");
+  if (userId === admin.id) redirect("/admin?notice=lock-self");
+  if (reason.length < 8 || reason.length > 280) redirect("/admin?notice=lock-reason");
+  if (formData.get("confirm") !== "yes") redirect("/admin?notice=lock-confirm");
+
+  const result = await db.user.updateMany({
+    where: { id: userId, role: "CUSTOMER", enrollmentStatus: "APPROVED" },
+    data: {
+      accessLocked: true,
+      lockReason: reason,
+      lockedById: admin.id,
+      lockedAt: new Date(),
+    },
+  });
+  if (result.count !== 1) redirect("/admin?notice=customer-unavailable");
+  refreshApprovalViews();
+  redirect("/admin?notice=locked");
+}
+
+export async function adminUnlockUserAction(formData: FormData) {
+  await requireAdmin();
+  const userId = String(formData.get("userId") ?? "").trim();
+  if (!userId) redirect("/admin?notice=customer-unavailable");
+  const result = await db.user.updateMany({
+    where: { id: userId, role: "CUSTOMER", accessLocked: true },
+    data: {
+      accessLocked: false,
+      lockReason: null,
+      lockedById: null,
+      lockedAt: null,
+    },
+  });
+  if (result.count !== 1) redirect("/admin?notice=customer-unavailable");
+  refreshApprovalViews();
+  redirect("/admin?notice=unlocked");
+}
+
+const PAIRED_REFERENCE = /^(trf_|pay_|req_|bp)/i;
+
+async function rebuildAccountLedger(tx: { transaction: any; account: any }, accountId: string) {
+  const rows = await tx.transaction.findMany({
+    where: { accountId, status: "COMPLETED" },
+    orderBy: { createdAt: "asc" },
+  });
+  let balance = 0;
+  for (const row of rows) {
+    balance += row.amount;
+    await tx.transaction.update({ where: { id: row.id }, data: { balanceAfter: balance } });
+  }
+  await tx.account.update({ where: { id: accountId }, data: { balance } });
+}
+
+export async function adminDeleteActivityAction(formData: FormData) {
+  await requireAdmin();
+  const transactionId = String(formData.get("transactionId") ?? "").trim();
+  const returnAccount = String(formData.get("accountId") ?? "").trim();
+  if (!transactionId) redirect("/admin?notice=activity-unavailable");
+  if (formData.get("confirm") !== "yes") redirect(`/admin?notice=activity-confirm${returnAccount ? `&account=${returnAccount}` : ""}`);
+
+  const selected = await db.transaction.findFirst({
+    where: { id: transactionId },
+    include: { account: { select: { id: true, userId: true } } },
+  });
+  if (!selected) redirect("/admin?notice=activity-unavailable");
+
+  const now = new Date();
+  try {
+    await db.$transaction(async (tx) => {
+      const toDelete = selected.reference && PAIRED_REFERENCE.test(selected.reference)
+        ? await tx.transaction.findMany({ where: { reference: selected.reference } })
+        : [selected];
+      if (toDelete.length === 0) throw new Error("ACTIVITY_UNAVAILABLE");
+
+      const accountIds = [...new Set(toDelete.map((row: { accountId: string }) => row.accountId))];
+      await tx.transaction.deleteMany({ where: { id: { in: toDelete.map((row: { id: string }) => row.id) } } });
+
+      if (selected.reference) {
+        await tx.billPayment.updateMany({
+          where: { confirmationNumber: selected.reference, status: { not: "COMPLETED" } },
+          data: { status: "CANCELED" },
+        });
+        await tx.moneyRequest.updateMany({
+          where: { reference: selected.reference, status: { in: ["OPEN", "PENDING_APPROVAL"] } },
+          data: { status: "CANCELED", updatedAt: now },
+        });
+      }
+
+      for (const accountId of accountIds) await rebuildAccountLedger(tx, accountId);
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "ACTIVITY_UNAVAILABLE") redirect("/admin?notice=activity-unavailable");
+    console.error("Admin activity delete failed", error);
+    redirect("/admin?notice=error");
+  }
+
+  refreshApprovalViews();
+  redirect(returnAccount ? `/admin?notice=activity-deleted&account=${returnAccount}` : "/admin?notice=activity-deleted");
+}
