@@ -177,4 +177,15 @@ describe("MFA method-choice screen", () => {
     const columns = testDb.raw.prepare(`PRAGMA table_info("User")`).all().map((c) => String(c.name).toLowerCase());
     expect(columns.filter((c) => /(phone|email).*verif|verif.*(phone|email)/.test(c))).toEqual([]);
   });
+
+  it("ends the session instead of crashing when the challenge user cannot be loaded", async () => {
+    const alice = await addUser(ALICE.email, ALICE.phone);
+    await auth.setMfaChallengeCookie(alice.id, "verify");
+    // Any failure to load the challenge user (here: the table is gone) must
+    // not become a 500 on /mfa/verify; the disposable challenge is ended and
+    // the member signs in again.
+    testDb.raw.exec(`DROP TABLE "User"`);
+    const result = await run(() => auth.requireMfaChallengeUser("verify"));
+    expect(result.redirectedTo).toBe("/api/auth/end");
+  });
 });

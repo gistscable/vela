@@ -112,7 +112,16 @@ export async function requireAdmin(): Promise<User> {
 export async function requireMfaChallengeUser(stage: "setup" | "verify"): Promise<User> {
   const payload = await verify((await cookies()).get(MFA_COOKIE)?.value);
   if (!payload || payload.kind !== "mfa" || payload.stage !== stage || typeof payload.sub !== "string") redirect("/login");
-  const user = await db.user.findUnique({ where: { id: payload.sub as string } });
+  let user: User | null = null;
+  try {
+    user = await db.user.findUnique({ where: { id: payload.sub as string } });
+  } catch {
+    // The challenge is disposable: if its user cannot be loaded (e.g. a
+    // database error the schema-compat layer could not absorb), ending the
+    // session via the route handler is better than a 500 on /mfa/*. The
+    // member signs in again and gets a fresh challenge.
+    redirect("/api/auth/end");
+  }
   if (!user) redirect("/login");
   return user as User;
 }

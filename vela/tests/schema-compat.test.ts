@@ -63,7 +63,21 @@ function fakeUserDelegate() {
       for (const field of NEW_USER_FIELDS) if (field in (args?.where ?? {})) throw missingColumn("User", field);
       return 7;
     }),
-    update: vi.fn(async (_args: any) => { throw missingColumn("User", "accessLocked"); }),
+    // Emulates Prisma writes against the old database: writing a missing
+    // column fails in the SET clause; otherwise the returned row selects
+    // every column, so it fails too unless an explicit legacy select is used.
+    update: vi.fn(async (args: any = {}) => {
+      for (const field of NEW_USER_FIELDS) if (field in (args.data ?? {})) throw missingColumn("User", field);
+      if (!args?.select) throw missingColumn("User", "accessLocked");
+      for (const field of NEW_USER_FIELDS) if (field in (args.select ?? {})) throw missingColumn("User", field);
+      return pick({ ...legacyRow, ...(args.data ?? {}) }, args.select);
+    }),
+    create: vi.fn(async (args: any = {}) => {
+      for (const field of NEW_USER_FIELDS) if (field in (args.data ?? {})) throw missingColumn("User", field);
+      if (!args?.select) throw missingColumn("User", "accessLocked");
+      for (const field of NEW_USER_FIELDS) if (field in (args.select ?? {})) throw missingColumn("User", field);
+      return pick({ ...legacyRow, ...(args.data ?? {}) }, args.select);
+    }),
   };
 }
 
@@ -94,6 +108,10 @@ describe("missing-schema error detection", () => {
     expect(isMissingTableError(missingTable("ProductApplication"))).toBe(true);
     expect(isMissingTableError(missingColumn("User", "accessLocked"))).toBe(false);
     expect(isMissingSchemaError(new Error("connection refused"))).toBe(false);
+    const pgError = new Error("column User.accessLocked does not exist") as Error & { code: string };
+    pgError.code = "42703";
+    expect(isMissingSchemaError(pgError)).toBe(true);
+    expect(missingColumnFromError(pgError)).toBe("accessLocked");
     expect(missingColumnFromError(missingColumn("User", "accessLocked"))).toBe("accessLocked");
     expect(missingColumnFromError(new Error("boom"))).toBeNull();
   });
@@ -158,12 +176,9 @@ describe("wrapPrismaForMissingSchema", () => {
     await expect(db.productApplication.count()).resolves.toBe(0);
   });
 
-  it("does not mask missing tables for other models, real errors, or writes", async () => {
+  it("does not mask missing tables for other models or real errors", async () => {
     const user = fakeUserDelegate();
     const db = wrapPrismaForMissingSchema({ user });
-    // Writes still fail loudly: silently dropping an admin lock would be worse.
-    await expect(db.user.update({ where: { id: "u1" }, data: { accessLocked: true } })).rejects.toMatchObject({ code: "P2022" });
-    expect(user.update).toHaveBeenCalledTimes(1);
 
     const broken = wrapPrismaForMissingSchema({
       user: { findMany: vi.fn(async (_args?: any) => { throw new Error("connection refused"); }) },
@@ -171,6 +186,49 @@ describe("wrapPrismaForMissingSchema", () => {
     });
     await expect(broken.user.findMany()).rejects.toThrow("connection refused");
     await expect(broken.account.findMany()).rejects.toMatchObject({ code: "P2021" });
+  });
+
+  it("retries a row-returning user update with a legacy select (the MFA code-submit write)", async () => {
+    const user = fakeUserDelegate();
+    const db = wrapPrismaForMissingSchema({ user });
+    // verifyTotpLoginAction records the used step exactly like this: every
+    // written column exists on the old database, but Prisma's returned row
+    // would select accessLocked/historyPaused and crash before this fix.
+    const row = await db.user.update({
+      where: { id: "u1" },
+      data: { totpLastUsedStep: 12345, mfaFailedAttempts: 0, mfaLockedUntil: null },
+    });
+    expect(user.update).toHaveBeenCalledTimes(2);
+    const retryArgs = user.update.mock.calls[1][0];
+    expect(retryArgs.data).toEqual({ totpLastUsedStep: 12345, mfaFailedAttempts: 0, mfaLockedUntil: null });
+    for (const field of NEW_USER_FIELDS) expect(retryArgs.select).not.toHaveProperty(field);
+    expect(row).toMatchObject({ id: "u1", totpLastUsedStep: 12345, accessLocked: false });
+  });
+
+  it("retries a row-returning create, but never a write whose data needs a missing column", async () => {
+    const user = fakeUserDelegate();
+    const db = wrapPrismaForMissingSchema({ user });
+    const created = await db.user.create({ data: { email: "new@example.com", passwordHash: "h" } });
+    expect(created).toMatchObject({ email: "new@example.com", accessLocked: false });
+
+    // An admin lock writes accessLocked itself: silently stripping it would
+    // report success while locking nobody, so it must still fail, unretried.
+    await expect(db.user.update({ where: { id: "u1" }, data: { accessLocked: true } })).rejects.toMatchObject({ code: "P2022" });
+    expect(user.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps retrying when each attempt reveals another missing column (older databases)", async () => {
+    const legacyRow = { id: "u1", email: "ada@example.com", firstName: "Ada" };
+    const findUnique = vi.fn(async (args: any = {}) => {
+      if (!args?.select) throw missingColumn("User", "accessLocked");
+      if ("username" in args.select) throw missingColumn("User", "username");
+      if ("usernameNormalized" in args.select) throw missingColumn("User", "usernameNormalized");
+      return pick({ ...legacyRow, username: undefined, usernameNormalized: undefined }, args.select);
+    });
+    const db = wrapPrismaForMissingSchema({ user: { findUnique } });
+    const row = await db.user.findUnique({ where: { id: "u1" } });
+    expect(row).toMatchObject({ id: "u1", email: "ada@example.com" });
+    expect(findUnique.mock.calls.length).toBeGreaterThanOrEqual(4);
   });
 
   it("converts a nested include of cards into a legacy select on retry", async () => {
