@@ -5,6 +5,7 @@ import { formatDate } from "@/lib/money";
 import { Badge, Panel } from "@/components/ui";
 import { PageHeader } from "@/components/transactions";
 import { PasswordForm, ProfileForm, UsernameForm } from "@/components/SettingsForms";
+import { SESSION_IDLE_LABEL } from "@/lib/session";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Customer Service & Settings — FMB" };
@@ -49,7 +50,7 @@ export default async function SettingsPage() {
               </p>
               <p className="flex items-center justify-between">
                 <span>Session security</span>
-                <Badge tone="navy">Encrypted · 7-day</Badge>
+                <Badge tone="navy">Encrypted · {SESSION_IDLE_LABEL} idle</Badge>
               </p>
             </div>
           </Panel>

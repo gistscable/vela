@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { logoutAction } from "@/lib/actions";
 import { PreviewNavigationFallback } from "./PreviewNavigationFallback";
+import { IdleSession } from "./IdleSession";
 import { Logo } from "./Logo";
 
 const TABS = [
@@ -44,6 +45,7 @@ const MORE_LINKS = [
   { href: "/mobile-deposit", label: "Deposit a check", icon: Camera },
   { href: "/transfer?tab=deposit", label: "Add funds from bank", icon: Landmark },
   { href: "/bill-pay", label: "Pay bills", icon: ReceiptText },
+  { href: "/products", label: "Open an account", icon: Landmark },
   { href: "/cards", label: "Cards & products", icon: CreditCard },
   { href: "/transactions", label: "Recent activity", icon: History },
   { href: "/statements", label: "Statements & documents", icon: FileText },
@@ -69,11 +71,12 @@ export function AppShell({
   const mobileTransferTab = pathname === "/transfer" && searchParams.get("tab") === "deposit" ? "deposit" : "transfer";
   const tabs = user.isAdmin ? [...TABS, { href: "/admin", label: "Admin approvals" }] : TABS;
   const moreLinks = user.isAdmin ? [...MORE_LINKS, { href: "/admin", label: "Admin approvals", icon: ShieldCheck }] : MORE_LINKS;
-  const isServicePath = ["/receive", "/mobile-deposit", "/services", "/bill-pay", "/cards", "/transactions", "/statements", "/linked-accounts", "/help", "/settings", "/admin"].some((href) => pathname === href || pathname.startsWith(`${href}/`));
+  const isServicePath = ["/receive", "/mobile-deposit", "/services", "/bill-pay", "/cards", "/products", "/transactions", "/statements", "/linked-accounts", "/help", "/settings", "/admin"].some((href) => pathname === href || pathname.startsWith(`${href}/`));
 
   return (
     <div className="flex min-h-screen flex-col bg-bank-bg">
       {sharedPreview && <PreviewNavigationFallback enabled />}
+      {!sharedPreview && <IdleSession enabled />}
       <header className="sticky top-0 z-30 border-b border-gray-300 bg-white">
         <div className="mx-auto flex max-w-[1180px] items-center justify-between px-3 py-2.5 sm:px-4 md:py-3">
           {/* Desktop web header */}

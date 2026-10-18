@@ -4,13 +4,14 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { clearAuthCookies, getMfaChallenge, requireUser, setMfaChallengeCookie, setSessionCookie } from "@/lib/auth";
+import { clearAuthCookies, getMfaChallenge, getSessionUserId, requireUser, setMfaChallengeCookie, setSessionCookie } from "@/lib/auth";
 import { decryptSensitive, encryptSensitive } from "@/lib/sensitive";
 import { generateTotpSecret, verifyTotp } from "@/lib/totp";
 import { parseCents } from "@/lib/money";
 import { lastFourDigits } from "@/lib/external-account-display";
 import { claimUsername, findUserByLoginIdentifier, isUniqueViolation, isUsernameTaken, USERNAME_UNAVAILABLE_MESSAGE } from "@/lib/identity";
 import { validateUsername } from "@/lib/username";
+import { isCheckingLikeType, productByCode } from "@/lib/products";
 
 // Compared against when no user matches, so "unknown user" and "wrong passcode" take similar time.
 const DUMMY_PASSWORD_HASH = "$2a$10$uY4y1.VITBIwxsGJUvxHnO/WMzQTPQt4TC3yc53PawwiHIlwvyc36";
@@ -21,7 +22,7 @@ const ref = (p: string) => `${p}_${Date.now().toString(36)}${Math.random().toStr
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 
 function refresh() {
-  for (const p of ["/dashboard", "/transactions", "/transfer", "/receive", "/bill-pay", "/cards", "/linked-accounts", "/settings"]) revalidatePath(p);
+  for (const p of ["/dashboard", "/transactions", "/transfer", "/receive", "/bill-pay", "/cards", "/linked-accounts", "/settings", "/products", "/admin"]) revalidatePath(p);
   revalidatePath("/accounts", "layout");
 }
 
@@ -39,6 +40,10 @@ export async function loginAction(_prev: ActionState, fd: FormData): Promise<Act
   }
   if (user.enrollmentStatus === "PENDING_APPROVAL") return { error: "Your enrollment is being processed. Please try signing in again later." };
   if (user.enrollmentStatus !== "APPROVED") return { error: "This enrollment is not active. Please contact support." };
+  if (user.accessLocked) {
+    const reason = (user.lockReason ?? "").trim();
+    return { error: reason ? `This account is locked. ${reason}` : "This account is locked. Contact support." };
+  }
   if (user.mfaLockedUntil && user.mfaLockedUntil > new Date()) {
     return { error: "Too many incorrect authenticator codes. Try again in a few minutes." };
   }
@@ -104,6 +109,25 @@ export async function logoutAction(): Promise<void> {
   redirect("/login");
 }
 
+/** Sliding idle session: refresh JWT + cookie while the member is active. */
+export async function touchSessionAction(): Promise<{ ok: boolean }> {
+  const userId = await getSessionUserId();
+  if (!userId) return { ok: false };
+  const user = await db.user.findUnique({ where: { id: userId } });
+  if (!user || user.enrollmentStatus !== "APPROVED" || user.accessLocked) {
+    await clearAuthCookies();
+    return { ok: false };
+  }
+  await setSessionCookie(user.id);
+  return { ok: true };
+}
+
+/** Clear the session after the idle watchdog fires. The client then sends the member to sign-in. */
+export async function expireIdleSessionAction(): Promise<{ ok: true }> {
+  await clearAuthCookies();
+  return { ok: true };
+}
+
 async function challengeUser(stage: "setup" | "verify") {
   const challenge = await getMfaChallenge();
   if (!challenge || challenge.stage !== stage) redirect("/login");
@@ -112,8 +136,16 @@ async function challengeUser(stage: "setup" | "verify") {
   return user;
 }
 
+function lockedAccountError(user: { accessLocked?: boolean; lockReason?: string | null }): ActionState | null {
+  if (!user.accessLocked) return null;
+  const reason = (user.lockReason ?? "").trim();
+  return { error: reason ? `This account is locked. ${reason}` : "This account is locked. Contact support." };
+}
+
 export async function completeTotpSetupAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const user = await challengeUser("setup");
+  const locked = lockedAccountError(user);
+  if (locked) return locked;
   if (!user.mfaPendingSecretEncrypted || !user.mfaPendingExpiresAt || user.mfaPendingExpiresAt <= new Date()) {
     return { error: "This setup session has expired. Sign in again to restart setup." };
   }
@@ -139,6 +171,8 @@ export async function completeTotpSetupAction(_prev: ActionState, fd: FormData):
 
 export async function verifyTotpLoginAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const user = await challengeUser("verify");
+  const locked = lockedAccountError(user);
+  if (locked) return locked;
   if (user.mfaLockedUntil && user.mfaLockedUntil > new Date()) return { error: "Too many incorrect codes. Try again in a few minutes." };
   if (!user.totpSecretEncrypted) return { error: "Authenticator is not set up for this user." };
   let secret: string;
@@ -337,6 +371,39 @@ async function ownCard(userId: string, cardId: string) {
   if (!card) return null;
   const account = await db.account.findFirst({ where: { id: card.accountId, userId } });
   return account ? card : null;
+}
+
+export async function applyProductAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const user = await requireUser();
+  const product = productByCode(str(fd, "productCode"));
+  if (!product) return { error: "Choose a product to apply for." };
+  const nickname = str(fd, "nickname").slice(0, 40) || null;
+  const linkedAccountId = str(fd, "linkedAccountId") || null;
+
+  if (product.kind === "DEBIT_CARD") {
+    if (!linkedAccountId) return { error: "Choose the checking account this debit card should draw from." };
+    const account = await ownAccount(user.id, linkedAccountId);
+    if (!account || !isCheckingLikeType(account.type)) return { error: "Choose a checking account for this debit card." };
+    const existingCard = await db.card.findFirst({ where: { accountId: account.id, kind: "DEBIT", status: { not: "CLOSED" } } });
+    if (existingCard) return { error: "That account already has a debit card. Freeze it from Card Services if you need to replace it." };
+  }
+
+  const pendingWhere: Record<string, unknown> = { userId: user.id, productCode: product.code, status: "PENDING_APPROVAL" };
+  if (product.kind === "DEBIT_CARD") pendingWhere.linkedAccountId = linkedAccountId;
+  const pending = await db.productApplication.findFirst({ where: pendingWhere });
+  if (pending) return { error: "You already have an application for this product awaiting review." };
+
+  await db.productApplication.create({
+    data: {
+      userId: user.id,
+      kind: product.kind,
+      productCode: product.code,
+      linkedAccountId: product.kind === "DEBIT_CARD" ? linkedAccountId : null,
+      nickname,
+    },
+  });
+  refresh();
+  return { success: true, message: "Application submitted. The product will appear on your accounts after it is approved." };
 }
 
 export async function toggleCardAction(fd: FormData): Promise<void> {

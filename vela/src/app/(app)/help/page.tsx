@@ -3,17 +3,20 @@ import { BookOpen, CircleHelp, MessageCircleQuestion } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { PageHeader } from "@/components/transactions";
 import { Panel } from "@/components/ui";
+import { SESSION_IDLE_LABEL } from "@/lib/session";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Help & Support — FMB" };
 
 const FAQS = [
-  { question: "Why did I land on the sign-in page?", answer: "A protected page needs a valid session. Sign in again if your session expired. Ordinary account, activity, transfer and service links should keep you signed in; the mobile Sign out control is inside the Menu." },
+  { question: "Why did I land on the sign-in page?", answer: `A protected page needs a valid session. For your protection we sign you out after ${SESSION_IDLE_LABEL} of inactivity, and you will need to sign in again. Ordinary account, activity, transfer and service links keep you signed in while you are using them; the mobile Sign out control is inside the Menu.` },
   { question: "Can I send money to another member?", answer: "Use Send money / Quick Pay to send funds to another FMB member. Payments appear in account activity as they are processed." },
   { question: "How can I receive money?", answer: "Use Receive money to request funds from another member. If they choose to pay, the transfer appears in account activity as it is processed." },
   { question: "How does mobile check deposit work?", answer: "Check images stay on your device. Your deposit appears in account activity as it is processed." },
   { question: "How do ACH deposits and bill payments work?", answer: "Deposit and bill payment details appear in account activity as they are processed." },
   { question: "Where are statements and card controls?", answer: "Open Services from the bottom navigation (or Menu from the top), then choose Statements & documents or Cards & products. They are also available from the desktop navigation." },
+  { question: "How do I open another account or get a card?", answer: "Use Open an account from Account Summary or Services. You can apply for business checking and savings, extra personal accounts, a debit card on a checking account, or a credit card. Each application is reviewed; after approval the product appears below your existing accounts (cards in the Cards section). An administrator can also credit deposit accounts and credit cards." },
+  { question: "Why does older activity keep appearing?", answer: "If generated history was included when the account was approved, the same pattern of payroll, bills, transfers, debits and credits continues after opening so the ledger stays current as days pass. An administrator can pause or resume that generated activity, delete individual entries, or lock an account and record a reason." },
 ];
 
 export default async function HelpPage() {

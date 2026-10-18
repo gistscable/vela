@@ -748,7 +748,38 @@ async function main() {
   const adaActivityCount = ada ? await db.transaction.count({ where: { account: { userId: ada.id } } }) : 0;
   check("Approved applicant can sign in", newUserText.includes("Welcome, Ada"));
   check("Admin's opt-out leaves the new customer's accounts at zero with no generated activity", Boolean(ada) && ada.accounts.find((account) => account.type === "CHECKING")?.balance === 0 && adaActivityCount === 0 && !newUserMain.includes("Trader Joe's"));
+  check("New accounts can be opened from Account Summary", newUserMain.includes("Open a new account") || newUserMain.includes("Open account"));
   await shot(page, "12-new-user-dashboard");
+
+  await page.goto(`${BASE}/products`, { waitUntil: "load" });
+  await page.getByRole("heading", { name: "Open an account or apply for a card" }).waitFor({ state: "visible" });
+  const businessForm = page.locator("form").filter({ has: page.locator('input[name="productCode"][value="BUSINESS_CHECKING"]') });
+  await businessForm.getByRole("button", { name: "Apply to open" }).click();
+  await page.getByText("Application submitted", { exact: false }).waitFor({ state: "visible" });
+  const adaChecking = ada?.accounts.find((account) => account.type === "CHECKING");
+  const debitForm = page.locator("form").filter({ has: page.locator('input[name="productCode"][value="DEBIT_VISA"]') });
+  if (adaChecking) await debitForm.locator('select[name="linkedAccountId"]').selectOption(adaChecking.id);
+  await debitForm.getByRole("button", { name: "Apply for this card" }).click();
+  await page.getByText("Application submitted", { exact: false }).waitFor({ state: "visible" });
+  const productsText = await page.locator("main").innerText();
+  check("Customer can apply for business checking and a debit card", productsText.includes("Awaiting review") && productsText.includes("Business Advantage Checking") && productsText.includes("FMB Visa Debit Card"));
+
+  await adminPage.goto(`${BASE}/admin`, { waitUntil: "load" });
+  const businessReview = adminPage.locator("article").filter({ hasText: adaEmail }).filter({ hasText: "Business Advantage Checking" });
+  await businessReview.locator('select[name="historyChoice"]').selectOption("none");
+  await businessReview.getByRole("button", { name: "Approve product" }).click();
+  await adminPage.waitForURL("**/admin?notice=product-approved", { timeout: 20000 });
+  await adminPage.goto(`${BASE}/admin`, { waitUntil: "load" });
+  const debitReview = adminPage.locator("article").filter({ hasText: adaEmail }).filter({ hasText: "FMB Visa Debit Card" });
+  await debitReview.getByRole("button", { name: "Approve product" }).click();
+  await adminPage.waitForURL("**/admin?notice=product-approved", { timeout: 20000 });
+  const adaBusiness = await db.account.findFirst({ where: { userId: ada?.id, type: "BUSINESS_CHECKING" } });
+  const adaDebit = adaChecking ? await db.card.findFirst({ where: { accountId: adaChecking.id } }) : null;
+  check("Admin approval opens business checking at zero and issues the debit card", adaBusiness?.balance === 0 && Boolean(adaDebit));
+
+  await page.goto(`${BASE}/dashboard`, { waitUntil: "load" });
+  const adaDash = await page.locator("main").innerText();
+  check("Approved business checking and debit card appear below existing accounts", adaDash.includes("Business Advantage") && adaDash.toLowerCase().includes("debit"));
 
   const priorTotpSecret = authenticatorSecrets.get(adaEmail);
   await adminPage.goto(`${BASE}/admin`, { waitUntil: "load" });

@@ -1,14 +1,23 @@
 import Link from "next/link";
-import { ArrowDownToLine, ArrowRight, Camera, ChevronRight, CreditCard, HandCoins, Info, PiggyBank, ReceiptText, Search, Send, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { ArrowDownToLine, ArrowRight, Briefcase, Camera, ChevronRight, CreditCard, HandCoins, Info, Landmark, PiggyBank, ReceiptText, Search, Send, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { getOverview } from "@/lib/queries";
 import { formatCents, maskAccountNumber } from "@/lib/money";
 import { categoryMeta } from "@/lib/categories";
+import { accountTypeLabel } from "@/lib/products";
 import { AreaChart, DonutChart, Panel } from "@/components/ui";
 import { SeeAllLink, Toast, TransactionList } from "@/components/transactions";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Account Summary — FMB" };
+
+function accountIcon(type: string) {
+  if (type === "SAVINGS" || type === "BUSINESS_SAVINGS" || type === "MONEY_MARKET") return PiggyBank;
+  if (type === "BUSINESS_CHECKING") return Briefcase;
+  if (type === "CD") return Landmark;
+  if (type === "CREDIT") return CreditCard;
+  return Wallet;
+}
 
 export default async function DashboardPage({
   searchParams,
@@ -27,6 +36,13 @@ export default async function DashboardPage({
   return (
     <div>
       <Toast kind={toast} />
+
+      {data.pendingApplications.length > 0 && (
+        <p className="mb-4 border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-[12px] leading-relaxed text-amber-950">
+          {data.pendingApplications.length === 1 ? "1 product application is" : `${data.pendingApplications.length} product applications are`} awaiting review.{" "}
+          <Link href="/products" className="font-semibold text-bank-link underline underline-offset-2">View applications &gt;</Link>
+        </p>
+      )}
 
       {!user.username && (
         <p data-testid="username-prompt" className="mb-4 border-l-4 border-bank-blue bg-blue-50/60 px-3 py-2 text-[12px] leading-relaxed text-gray-700">
@@ -55,7 +71,7 @@ export default async function DashboardPage({
         </form>
 
         <div className="flex items-center justify-between px-1 text-[11px] text-gray-600">
-          <span>Total across {data.accounts.length} accounts</span>
+          <span>Total across {data.accounts.length} account{data.accounts.length === 1 ? "" : "s"}</span>
           <strong className="text-[13px] tabular-nums text-gray-900">{formatCents(data.totalBalance)}</strong>
         </div>
 
@@ -63,7 +79,7 @@ export default async function DashboardPage({
           <div className="h-[5px]" style={{ background: "linear-gradient(90deg, #D8232A 0 60%, #002855 60% 100%)" }} />
           <div className="flex items-center justify-between px-4 py-3.5">
             <h2 className="text-[18px] font-bold text-gray-900">Banking</h2>
-            <ChevronRight className="h-5 w-5 rotate-90 text-gray-400" />
+            <Link href="/products" className="text-[11px] font-semibold text-bank-link">Open account</Link>
           </div>
           <div className="border-t border-gray-200">
             {data.accounts.map((account) => (
@@ -71,7 +87,7 @@ export default async function DashboardPage({
                 <span className="min-w-0 flex-1">
                   <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-gray-500">FMB</span>
                   <span className="block text-[14px] font-medium leading-tight text-gray-900">{account.name} · {account.accountNumber.slice(-4)}</span>
-                  <span className="mt-1 block text-[10.5px] text-gray-500">{account.type === "SAVINGS" && account.apy ? `${account.apy}% APY · ` : ""}Available balance</span>
+                  <span className="mt-1 block text-[10.5px] text-gray-500">{account.apy ? `${account.apy}% APY · ` : ""}{accountTypeLabel(account.type)} · Available balance</span>
                 </span>
                 <span className="shrink-0 text-right text-[15px] font-medium tabular-nums text-gray-900">{formatCents(account.balance)}</span>
                 <ChevronRight className="h-5 w-5 shrink-0 text-gray-400" />
@@ -80,23 +96,39 @@ export default async function DashboardPage({
           </div>
         </section>
 
-        {data.card && (
-          <section className="overflow-hidden rounded-[14px] border border-gray-200 bg-white shadow-panel">
-            <div className="h-[5px]" style={{ background: "linear-gradient(90deg, #D8232A 0 60%, #002855 60% 100%)" }} />
-            <div className="flex items-center justify-between px-4 py-3.5">
-              <h2 className="text-[18px] font-bold text-gray-900">Cards</h2>
-              <ChevronRight className="h-5 w-5 rotate-90 text-gray-400" />
-            </div>
-            <Link href="/cards" className="flex items-center gap-3 border-t border-gray-200 px-4 py-4 hover:bg-gray-50">
-              <span className="min-w-0 flex-1">
-                <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-gray-500">FMB</span>
-                <span className="block text-[14px] font-medium text-gray-900">{data.card.brand} debit card · {data.card.last4}</span>
-                <span className="mt-1 block text-[10.5px] text-gray-500">{data.card.status === "FROZEN" ? "Temporarily locked" : "Manage card"}</span>
-              </span>
-              <ChevronRight className="h-5 w-5 text-gray-400" />
+        <section className="overflow-hidden rounded-[14px] border border-gray-200 bg-white shadow-panel">
+          <div className="h-[5px]" style={{ background: "linear-gradient(90deg, #D8232A 0 60%, #002855 60% 100%)" }} />
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <h2 className="text-[18px] font-bold text-gray-900">Cards</h2>
+            <Link href="/products" className="text-[11px] font-semibold text-bank-link">Apply</Link>
+          </div>
+          {data.cards.length === 0 ? (
+            <Link href="/products" className="block border-t border-gray-200 px-4 py-4 text-[13px] text-gray-600 hover:bg-gray-50">
+              Apply for a debit or credit card. It appears here after approval.
             </Link>
-          </section>
-        )}
+          ) : (
+            <div className="border-t border-gray-200">
+              {data.cards.map((card) => {
+                const credit = card.kind === "CREDIT";
+                return (
+                  <Link key={card.id} href={credit ? `/accounts/${card.accountId}` : "/cards"} className="flex items-center gap-2 border-b border-gray-200 px-4 py-3.5 last:border-0 hover:bg-gray-50">
+                    <span className="min-w-0 flex-1">
+                      <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-gray-500">FMB</span>
+                      <span className="block text-[14px] font-medium leading-tight text-gray-900">{credit ? `${card.account.name} · ${card.last4}` : `${card.brand} debit card · ${card.last4}`}</span>
+                      <span className="mt-1 block text-[10.5px] text-gray-500">
+                        {card.status === "FROZEN" ? "Temporarily locked" : credit ? "Current balance" : `Linked to ${card.account.name}`}
+                      </span>
+                    </span>
+                    {credit ? (
+                      <span className="shrink-0 text-right text-[15px] font-medium tabular-nums text-gray-900">{formatCents(Math.abs(card.account.balance))}</span>
+                    ) : null}
+                    <ChevronRight className="h-5 w-5 shrink-0 text-gray-400" />
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </section>
 
         <Panel title="Recent activity" action={<SeeAllLink href="/transactions" label="View all" />} bodyClassName="p-0">
           <TransactionList transactions={data.recentTransactions.slice(0, 6)} dense />
@@ -170,7 +202,7 @@ export default async function DashboardPage({
           <Panel
             title="Banking accounts"
             action={
-              <Link href="/transfer" className="text-[11.5px] font-semibold text-bank-link underline underline-offset-2">
+              <Link href="/products" className="text-[11.5px] font-semibold text-bank-link underline underline-offset-2">
                 Open a new account
               </Link>
             }
@@ -186,7 +218,7 @@ export default async function DashboardPage({
               </thead>
               <tbody>
                 {data.accounts.map((a) => {
-                  const Icon = a.type === "SAVINGS" ? PiggyBank : Wallet;
+                  const Icon = accountIcon(a.type);
                   return (
                     <tr key={a.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
                       <td className="px-5 py-4">
@@ -198,7 +230,8 @@ export default async function DashboardPage({
                             <span className="block font-bold text-bank-link underline underline-offset-2">{a.name}</span>
                             <span className="mt-0.5 block text-[11px] text-gray-500">
                               {maskAccountNumber(a.accountNumber)}
-                              {a.type === "SAVINGS" && a.apy ? ` · ${a.apy}% APY` : ""}
+                              {` · ${accountTypeLabel(a.type)}`}
+                              {a.apy ? ` · ${a.apy}% APY` : ""}
                             </span>
                           </span>
                         </Link>
@@ -228,6 +261,50 @@ export default async function DashboardPage({
               <span className="text-gray-600">Total: </span>
               <span className="text-[14px] font-bold tabular-nums text-bank-navy">{formatCents(data.totalBalance)}</span>
             </div>
+          </Panel>
+
+          <Panel
+            title="Cards"
+            action={
+              <Link href="/products" className="text-[11.5px] font-semibold text-bank-link underline underline-offset-2">
+                Apply for a card
+              </Link>
+            }
+            bodyClassName="p-0"
+          >
+            {data.cards.length === 0 ? (
+              <p className="px-5 py-6 text-[12px] text-gray-500">No cards yet. Apply for a debit or credit card — it shows here after approval.</p>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {data.cards.map((card) => {
+                  const credit = card.kind === "CREDIT";
+                  return (
+                    <Link key={card.id} href={credit ? `/accounts/${card.accountId}` : "/cards"} className="flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50">
+                      <span className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 items-center justify-center rounded border border-bank-sand bg-bank-sand text-bank-navy">
+                          <CreditCard className="h-4 w-4" />
+                        </span>
+                        <span>
+                          <span className="block font-bold text-bank-link underline underline-offset-2">{credit ? card.account.name : `${card.brand} debit card`}</span>
+                          <span className="mt-0.5 block text-[11px] text-gray-500">
+                            {credit ? `${card.brand} credit · ${card.last4}` : `Linked to ${card.account.name} · ${card.last4}`}
+                            {card.status === "FROZEN" ? " · Locked" : ""}
+                          </span>
+                        </span>
+                      </span>
+                      {credit ? (
+                        <span className="text-right">
+                          <span className="block text-[15px] font-bold tabular-nums text-gray-900">{formatCents(Math.abs(card.account.balance))}</span>
+                          <span className="mt-0.5 block text-[10.5px] text-gray-500">Current balance</span>
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-semibold text-bank-link">Manage</span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </Panel>
 
           {/* Snapshot row */}
@@ -290,6 +367,7 @@ export default async function DashboardPage({
                 { href: "/receive", icon: HandCoins, label: "Request money" },
                 { href: "/bill-pay", icon: ReceiptText, label: "Pay a bill" },
                 { href: "/services", icon: Info, label: "All services" },
+                { href: "/products", icon: Landmark, label: "Open an account or apply for a card" },
                 { href: "/cards", icon: CreditCard, label: "Manage my card" },
                 { href: "/statements", icon: Info, label: "View statements" },
               ].map((item) => (

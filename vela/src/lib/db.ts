@@ -30,9 +30,17 @@ export type User = {
   mfaEnabled: boolean; totpSecretEncrypted: string | null; totpLastUsedStep: number | null;
   mfaPendingSecretEncrypted: string | null; mfaPendingExpiresAt: Date | null;
   mfaFailedAttempts: number; mfaLockedUntil: Date | null;
+  historyPaused: boolean; historyPausedAt: Date | null; historyPausedById: string | null;
+  accessLocked: boolean; lockReason: string | null; lockedById: string | null; lockedAt: Date | null;
   createdAt: Date; updatedAt: Date;
 };
-export type Card = { id: string; accountId: string; last4: string; brand: string; status: string; dailyLimit: number; spentToday: number; createdAt: Date };
+export type Card = { id: string; accountId: string; last4: string; brand: string; kind: string; status: string; dailyLimit: number; spentToday: number; creditLimit: number | null; createdAt: Date };
+export type ProductApplication = {
+  id: string; userId: string; kind: string; productCode: string; status: string;
+  linkedAccountId: string | null; nickname: string | null; reviewedById: string | null;
+  reviewedAt: Date | null; createdAccountId: string | null; createdCardId: string | null;
+  createdAt: Date; user: User;
+};
 export type BillPayee = { id: string; userId: string; name: string; category: string; accountMask: string | null; encryptedAccountNumber?: string | null; createdAt: Date };
 export type BillPayment = { id: string; userId: string; payeeId: string; accountId: string; amount: number; scheduledFor: Date; frequency: string; memo: string | null; status: string; confirmationNumber: string; createdAt: Date; payee: BillPayee; account: Account; user: User };
 export type ExternalAccount = { user: User; id: string; userId: string; institutionName: string; nickname: string; accountType: string; accountMask: string; status: string; microdepositAmount1: number | null; microdepositAmount2: number | null; microdepositExpiresAt: Date | null; microdepositAttempts: number; reviewedById: string | null; reviewedAt: Date | null; verifiedAt: Date | null; createdAt: Date };
@@ -60,7 +68,8 @@ export type Database = {
   card: Delegate<Card>; payee: Delegate<Payee>; billPayee: Delegate<BillPayee>;
   billPayment: Delegate<BillPayment>; linkedBank: Delegate<LinkedBank>;
   externalAccount: Delegate<ExternalAccount>; fundingIntent: Delegate<FundingIntent>;
-  moneyRequest: Delegate<MoneyRequest>; processorEvent: Delegate<{ id: string; provider: string; type: string; createdAt: Date }>;
+  moneyRequest: Delegate<MoneyRequest>; productApplication: Delegate<ProductApplication>;
+  processorEvent: Delegate<{ id: string; provider: string; type: string; createdAt: Date }>;
   $transaction: <T>(fn: (tx: Database) => Promise<T>) => Promise<T>;
   $disconnect: () => Promise<void>;
 };
@@ -97,13 +106,15 @@ function getSqlite(): any {
 const DATE_FIELDS = new Set([
   "createdAt", "updatedAt", "scheduledFor", "reviewedAt", "verifiedAt", "paidAt",
   "enrollmentReviewedAt", "mfaPendingExpiresAt", "mfaLockedUntil", "microdepositExpiresAt",
+  "historyPausedAt", "lockedAt",
 ]);
-const BOOL_FIELDS = new Set(["mfaEnabled"]);
+const BOOL_FIELDS = new Set(["mfaEnabled", "historyPaused", "accessLocked"]);
 const MODELS: Record<string, string> = {
   user: "User", account: "Account", transaction: "Transaction", card: "Card",
   payee: "Payee", billPayee: "BillPayee", billPayment: "BillPayment",
   linkedBank: "LinkedBank", externalAccount: "ExternalAccount",
-  fundingIntent: "FundingIntent", moneyRequest: "MoneyRequest", processorEvent: "ProcessorEvent",
+  fundingIntent: "FundingIntent", moneyRequest: "MoneyRequest",
+  productApplication: "ProductApplication", processorEvent: "ProcessorEvent",
 };
 /** many-to-one relations: model -> relation -> { fk, target } */
 const REL: Record<string, Record<string, { fk: string; target: string }>> = {
@@ -125,6 +136,7 @@ const REL: Record<string, Record<string, { fk: string; target: string }>> = {
     recipient: { fk: "recipientId", target: "User" },
     account: { fk: "accountId", target: "Account" },
   },
+  ProductApplication: { user: { fk: "userId", target: "User" } },
 };
 /** one-to-many relations (for include): model -> relation -> { target, fkOnTarget } */
 const REVERSE: Record<string, Record<string, { target: string; fk: string }>> = {
@@ -135,6 +147,7 @@ const REVERSE: Record<string, Record<string, { target: string; fk: string }>> = 
     billPayments: { target: "BillPayment", fk: "userId" },
     linkedBanks: { target: "LinkedBank", fk: "userId" },
     externalAccounts: { target: "ExternalAccount", fk: "userId" },
+    productApplications: { target: "ProductApplication", fk: "userId" },
   },
   Account: {
     transactions: { target: "Transaction", fk: "accountId" },
@@ -294,10 +307,11 @@ function findOneRaw(table: string, where: any): any | null {
 }
 
 const DEFAULTS: Record<string, Record<string, unknown>> = {
-  User: { role: "CUSTOMER", enrollmentStatus: "APPROVED", mfaEnabled: 0, mfaFailedAttempts: 0 },
+  User: { role: "CUSTOMER", enrollmentStatus: "APPROVED", mfaEnabled: 0, mfaFailedAttempts: 0, historyPaused: 0, accessLocked: 0 },
   Account: { status: "ACTIVE", balance: 0 },
   Transaction: { status: "COMPLETED" },
-  Card: { brand: "Visa", status: "ACTIVE", dailyLimit: 50000, spentToday: 0 },
+  Card: { brand: "Visa", kind: "DEBIT", status: "ACTIVE", dailyLimit: 50000, spentToday: 0 },
+  ProductApplication: { status: "PENDING_APPROVAL" },
   BillPayee: { category: "OTHER" },
   BillPayment: { frequency: "ONCE", status: "SCHEDULED" },
   ExternalAccount: { status: "PENDING_APPROVAL", microdepositAttempts: 0 },

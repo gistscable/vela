@@ -12,6 +12,7 @@
  * = $345,282.75 ($245,282.75 checking + $100,000.00 savings).
  */
 import { applyUserHistory, generateUserHistory } from "../src/lib/history";
+import { continueUserHistory } from "../src/lib/history-continue";
 import { db } from "../src/lib/db";
 const apply = process.argv.includes("--apply");
 const emailArg = process.argv.find((a) => a.startsWith("--email="))?.split("=")[1];
@@ -29,8 +30,9 @@ async function main() {
   for (const user of users) {
     if (apply) {
       const s = await applyUserHistory(db, user, { force: true });
+      const continued = await continueUserHistory(db, user.id);
       console.log(
-        `✓ ${user.email} (${user.role}) tx=${s.transactionCount} opening=${money(s.openingCredits)} credits=${money(s.laterCredits)} debits=${money(s.externalDebits)} checking=${money(s.checkingEnding)} savings=${money(s.savingsEnding)} total=${money(s.endingTotal)} ${s.firstDate.toISOString().slice(0, 10)}..${s.lastDate.toISOString().slice(0, 10)}`,
+        `✓ ${user.email} (${user.role}) tx=${s.transactionCount}+${continued.added} opening=${money(s.openingCredits)} credits=${money(s.laterCredits)} debits=${money(s.externalDebits)} checking=${money(s.checkingEnding)} savings=${money(s.savingsEnding)} total=${money(s.endingTotal)} ${s.firstDate.toISOString().slice(0, 10)}..${s.lastDate.toISOString().slice(0, 10)} continued=${continued.added}`,
       );
     } else {
       const { summary: s } = generateUserHistory(user.email);

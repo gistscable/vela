@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { applyUserHistory } from "../src/lib/history";
+import { continueUserHistory } from "../src/lib/history-continue";
 import { db } from "../src/lib/db";
 const DEMO_EMAILS = ["demo@vela.app", "marcus@example.com"] as const;
 
@@ -61,7 +62,8 @@ async function main() {
   // - $1,054,717.25 debits = $345,282.75 (checking $245,282.75 + savings $100,000).
   // Also creates the canonical ComEd / Lakeshore Properties bill payees.
   const amaraSummary = await applyUserHistory(db, amara, { force: true });
-  console.log(`  ✓ Amara Okafor — checking ${amaraSummary.checkingEnding}¢, savings ${amaraSummary.savingsEnding}¢, ${amaraSummary.transactionCount} transactions`);
+  const amaraContinued = await continueUserHistory(db, amara.id);
+  console.log(`  ✓ Amara Okafor — checking ${amaraSummary.checkingEnding}¢, savings ${amaraSummary.savingsEnding}¢, ${amaraSummary.transactionCount} transactions, +${amaraContinued.added} continued`);
 
   const marcus = await db.user.create({
     data: {
@@ -96,7 +98,8 @@ async function main() {
     data: { accountId: mChecking.id, last4: "4417", brand: "Visa", dailyLimit: 50000 },
   });
   const marcusSummary = await applyUserHistory(db, marcus, { force: true });
-  console.log(`  ✓ Marcus Chen — checking ${marcusSummary.checkingEnding}¢, savings ${marcusSummary.savingsEnding}¢, ${marcusSummary.transactionCount} transactions (marcus@example.com)`);
+  const marcusContinued = await continueUserHistory(db, marcus.id);
+  console.log(`  ✓ Marcus Chen — checking ${marcusSummary.checkingEnding}¢, savings ${marcusSummary.savingsEnding}¢, ${marcusSummary.transactionCount} transactions, +${marcusContinued.added} continued (marcus@example.com)`);
 
   console.log("✅ Done. Demo login: demo@vela.app / demo1234");
 }

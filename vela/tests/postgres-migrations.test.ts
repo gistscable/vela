@@ -14,6 +14,8 @@ const migrations = readdirSync(migrationsDir, { withFileTypes: true })
   .map((d) => d.name)
   .sort();
 const USERNAME_MIGRATION = "20261016000000_username_login";
+const PRODUCT_MIGRATION = "20261018000000_product_applications";
+const ADMIN_CONTROLS_MIGRATION = "20261018010000_admin_controls";
 
 let pg: PGlite;
 
@@ -76,6 +78,8 @@ beforeAll(async () => {
   await applyThrough(pg, USERNAME_MIGRATION);
   await seedExistingData(pg);
   await pg.exec(sql(USERNAME_MIGRATION));
+  await pg.exec(sql(PRODUCT_MIGRATION));
+  await pg.exec(sql(ADMIN_CONTROLS_MIGRATION));
 }, 60_000);
 
 afterAll(async () => {
@@ -84,7 +88,8 @@ afterAll(async () => {
 
 describe("username migration (fresh database, full history)", () => {
   it("is the latest migration and the guard migration sorts between the two it sits between", () => {
-    expect(migrations.at(-1)).toBe(USERNAME_MIGRATION);
+    expect(migrations).toContain(USERNAME_MIGRATION);
+    expect(migrations.at(-1)).toBe(ADMIN_CONTROLS_MIGRATION);
     const guard = migrations.indexOf(GUARD_MIGRATION);
     expect(migrations[guard - 1]).toBe("20261015010000_transaction_approvals");
     expect(migrations[guard + 1]).toBe("20261015020000_external_account_verification");

@@ -9,6 +9,8 @@ import { db } from "@/lib/db";
 import { containsLongAccountLikeNumber, lastFourDigits, safeInstitutionName, safeSenderName } from "@/lib/external-account-display";
 import { parseCents } from "@/lib/money";
 import { ensureUserHistory } from "@/lib/history";
+import { applyProductHistory } from "@/lib/product-history";
+import { allocateAccountNumber, allocateCardLast4, isCheckingLikeType, productByCode, ROUTING_NUMBER } from "@/lib/products";
 
 function randomRef(prefix: string) {
   return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -20,6 +22,8 @@ function refreshApprovalViews() {
   revalidatePath("/transactions");
   revalidatePath("/receive");
   revalidatePath("/bill-pay");
+  revalidatePath("/products");
+  revalidatePath("/cards");
   revalidatePath("/accounts", "layout");
 }
 
@@ -250,6 +254,127 @@ export async function reviewEnrollmentAction(formData: FormData) {
   redirect("/admin?notice=enrollment-rejected");
 }
 
+export async function reviewProductApplicationAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const applicationId = String(formData.get("applicationId") ?? "").trim();
+  const decision = String(formData.get("decision") ?? "");
+  const historyChoice = String(formData.get("historyChoice") ?? "");
+  if (!applicationId || !["approve", "reject"].includes(decision)) redirect("/admin?notice=product-unavailable");
+
+  const application = await db.productApplication.findFirst({
+    where: { id: applicationId, status: "PENDING_APPROVAL" },
+    include: { user: { select: { id: true, email: true, enrollmentStatus: true } } },
+  });
+  if (!application) redirect("/admin?notice=product-unavailable");
+  if (application.user.enrollmentStatus !== "APPROVED") redirect("/admin?notice=enrollment-pending");
+
+  const product = productByCode(application.productCode);
+  if (!product) redirect("/admin?notice=product-unavailable");
+
+  const now = new Date();
+  if (decision === "reject") {
+    const result = await db.productApplication.updateMany({
+      where: { id: application.id, status: "PENDING_APPROVAL" },
+      data: { status: "REJECTED", reviewedById: admin.id, reviewedAt: now },
+    });
+    if (result.count !== 1) redirect("/admin?notice=product-unavailable");
+    refreshApprovalViews();
+    redirect("/admin?notice=product-rejected");
+  }
+
+  const needsHistoryChoice = product.kind === "ACCOUNT" || product.kind === "CREDIT_CARD";
+  if (needsHistoryChoice && !["include", "none"].includes(historyChoice)) {
+    redirect("/admin?notice=product-history-choice");
+  }
+
+  let createdAccountId: string | null = null;
+  let createdCardId: string | null = null;
+  try {
+    await db.$transaction(async (tx) => {
+      const claimed = await tx.productApplication.updateMany({
+        where: { id: application.id, status: "PENDING_APPROVAL" },
+        data: { status: "APPROVED", reviewedById: admin.id, reviewedAt: now },
+      });
+      if (claimed.count !== 1) throw new Error("ALREADY_REVIEWED");
+
+      if (product.kind === "DEBIT_CARD") {
+        const linked = await tx.account.findFirst({
+          where: { id: application.linkedAccountId ?? "", userId: application.userId, status: "ACTIVE" },
+        });
+        if (!linked || !isCheckingLikeType(linked.type)) throw new Error("ACCOUNT_UNAVAILABLE");
+        const existing = await tx.card.findFirst({ where: { accountId: linked.id, kind: "DEBIT", status: { not: "CLOSED" } } });
+        if (existing) throw new Error("CARD_EXISTS");
+        const card = await tx.card.create({
+          data: {
+            accountId: linked.id,
+            last4: allocateCardLast4(application.user.email, `${product.code}:${linked.id}`),
+            brand: "Visa",
+            kind: "DEBIT",
+            dailyLimit: product.dailyLimit ?? 50_000,
+          },
+        });
+        createdCardId = card.id;
+      } else {
+        const account = await tx.account.create({
+          data: {
+            userId: application.userId,
+            type: product.accountType ?? "CHECKING",
+            name: application.nickname?.trim() || product.name,
+            accountNumber: await allocateAccountNumber(tx, application.user.email, `${product.code}:${application.id}`),
+            routingNumber: ROUTING_NUMBER,
+            balance: 0,
+            ...(product.apy ? { apy: product.apy } : {}),
+          },
+        });
+        createdAccountId = account.id;
+        if (product.kind === "CREDIT_CARD") {
+          const card = await tx.card.create({
+            data: {
+              accountId: account.id,
+              last4: allocateCardLast4(application.user.email, `${product.code}:${account.id}`),
+              brand: "Visa",
+              kind: "CREDIT",
+              dailyLimit: product.dailyLimit ?? 200_000,
+              creditLimit: product.creditLimit ?? 1_000_000,
+            },
+          });
+          createdCardId = card.id;
+        }
+      }
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "ALREADY_REVIEWED") redirect("/admin?notice=product-unavailable");
+    if (error instanceof Error && error.message === "ACCOUNT_UNAVAILABLE") redirect("/admin?notice=account");
+    if (error instanceof Error && error.message === "CARD_EXISTS") redirect("/admin?notice=product-card-exists");
+    console.error("Product application approval failed", error);
+    redirect("/admin?notice=error");
+  }
+
+  if (createdAccountId || createdCardId) {
+    await db.productApplication.update({
+      where: { id: application.id },
+      data: { createdAccountId, createdCardId },
+    });
+  }
+
+  let historyFailed = false;
+  if (needsHistoryChoice && historyChoice === "include" && createdAccountId) {
+    const account = await db.account.findUnique({ where: { id: createdAccountId } });
+    if (account) {
+      try {
+        await applyProductHistory(db, { id: application.userId, email: application.user.email }, account, product.code);
+      } catch (error) {
+        historyFailed = true;
+        console.error("Failed to provision product history", application.id, error);
+      }
+    }
+  }
+
+  refreshApprovalViews();
+  if (historyFailed) redirect("/admin?notice=product-history-error");
+  redirect(historyChoice === "include" ? "/admin?notice=product-approved-history" : "/admin?notice=product-approved");
+}
+
 export async function adminResetAuthenticatorAction(formData: FormData) {
   await requireAdmin();
   const userId = String(formData.get("userId") ?? "").trim();
@@ -363,4 +488,125 @@ export async function adminCreditAction(formData: FormData) {
 
   refreshApprovalViews();
   redirect("/admin?notice=credit-submitted");
+}
+
+export async function adminPauseHistoryAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const userId = String(formData.get("userId") ?? "").trim();
+  const paused = String(formData.get("paused") ?? "") === "yes";
+  if (!userId) redirect("/admin?notice=customer-unavailable");
+  const result = await db.user.updateMany({
+    where: { id: userId, role: "CUSTOMER" },
+    data: {
+      historyPaused: paused,
+      historyPausedAt: paused ? new Date() : null,
+      historyPausedById: paused ? admin.id : null,
+    },
+  });
+  if (result.count !== 1) redirect("/admin?notice=customer-unavailable");
+  refreshApprovalViews();
+  redirect(paused ? "/admin?notice=history-paused" : "/admin?notice=history-resumed");
+}
+
+export async function adminLockUserAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const userId = String(formData.get("userId") ?? "").trim();
+  const reason = String(formData.get("lockReason") ?? "").replace(/\s+/g, " ").trim();
+  if (!userId) redirect("/admin?notice=customer-unavailable");
+  if (userId === admin.id) redirect("/admin?notice=lock-self");
+  if (reason.length < 8 || reason.length > 280) redirect("/admin?notice=lock-reason");
+  if (formData.get("confirm") !== "yes") redirect("/admin?notice=lock-confirm");
+
+  const result = await db.user.updateMany({
+    where: { id: userId, role: "CUSTOMER", enrollmentStatus: "APPROVED" },
+    data: {
+      accessLocked: true,
+      lockReason: reason,
+      lockedById: admin.id,
+      lockedAt: new Date(),
+    },
+  });
+  if (result.count !== 1) redirect("/admin?notice=customer-unavailable");
+  refreshApprovalViews();
+  redirect("/admin?notice=locked");
+}
+
+export async function adminUnlockUserAction(formData: FormData) {
+  await requireAdmin();
+  const userId = String(formData.get("userId") ?? "").trim();
+  if (!userId) redirect("/admin?notice=customer-unavailable");
+  const result = await db.user.updateMany({
+    where: { id: userId, role: "CUSTOMER", accessLocked: true },
+    data: {
+      accessLocked: false,
+      lockReason: null,
+      lockedById: null,
+      lockedAt: null,
+    },
+  });
+  if (result.count !== 1) redirect("/admin?notice=customer-unavailable");
+  refreshApprovalViews();
+  redirect("/admin?notice=unlocked");
+}
+
+const PAIRED_REFERENCE = /^(trf_|pay_|req_|bp)/i;
+
+async function rebuildAccountLedger(tx: { transaction: any; account: any }, accountId: string) {
+  const rows = await tx.transaction.findMany({
+    where: { accountId, status: "COMPLETED" },
+    orderBy: { createdAt: "asc" },
+  });
+  let balance = 0;
+  for (const row of rows) {
+    balance += row.amount;
+    await tx.transaction.update({ where: { id: row.id }, data: { balanceAfter: balance } });
+  }
+  await tx.account.update({ where: { id: accountId }, data: { balance } });
+}
+
+export async function adminDeleteActivityAction(formData: FormData) {
+  await requireAdmin();
+  const transactionId = String(formData.get("transactionId") ?? "").trim();
+  const returnAccount = String(formData.get("accountId") ?? "").trim();
+  if (!transactionId) redirect("/admin?notice=activity-unavailable");
+  if (formData.get("confirm") !== "yes") redirect(`/admin?notice=activity-confirm${returnAccount ? `&account=${returnAccount}` : ""}`);
+
+  const selected = await db.transaction.findFirst({
+    where: { id: transactionId },
+    include: { account: { select: { id: true, userId: true } } },
+  });
+  if (!selected) redirect("/admin?notice=activity-unavailable");
+
+  const now = new Date();
+  try {
+    await db.$transaction(async (tx) => {
+      const toDelete = selected.reference && PAIRED_REFERENCE.test(selected.reference)
+        ? await tx.transaction.findMany({ where: { reference: selected.reference } })
+        : [selected];
+      if (toDelete.length === 0) throw new Error("ACTIVITY_UNAVAILABLE");
+
+      const accountIds = [...new Set(toDelete.map((row: { accountId: string }) => row.accountId))];
+      await tx.transaction.deleteMany({ where: { id: { in: toDelete.map((row: { id: string }) => row.id) } } });
+
+      if (selected.reference) {
+        await tx.billPayment.updateMany({
+          where: { confirmationNumber: selected.reference, status: { not: "COMPLETED" } },
+          data: { status: "CANCELED" },
+        });
+        await tx.moneyRequest.updateMany({
+          where: { reference: selected.reference, status: { in: ["OPEN", "PENDING_APPROVAL"] } },
+          data: { status: "CANCELED", updatedAt: now },
+        });
+      }
+
+      for (const accountId of accountIds) await rebuildAccountLedger(tx, accountId);
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "ACTIVITY_UNAVAILABLE") redirect("/admin?notice=activity-unavailable");
+    console.error("Admin activity delete failed", error);
+    redirect("/admin?notice=error");
+  }
+
+  refreshApprovalViews();
+  redirect(returnAccount ? `/admin?notice=activity-deleted&account=${returnAccount}` : "/admin?notice=activity-deleted");
 }
