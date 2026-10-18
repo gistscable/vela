@@ -10,8 +10,15 @@ export function containsLongAccountLikeNumber(value: string | null | undefined):
   return /\d{7,}/.test(String(value ?? "").replace(/[\s-]/g, ""));
 }
 
+function replaceLegacyBrand(value: string): string {
+  return value
+    .replace(/First Meridian\s+Bank/gi, "FMB")
+    .replace(/First Meridian\s+debit\s+card/gi, "FMB debit card")
+    .replace(/First Meridian/gi, "FMB");
+}
+
 function clean(value: string | null | undefined, fallback: string, max = 60): string {
-  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  const text = replaceLegacyBrand(String(value ?? "")).replace(/\s+/g, " ").trim();
   if (!text || containsLongAccountLikeNumber(text)) return fallback;
   return text.slice(0, max);
 }

@@ -1,10 +1,9 @@
 /**
  * Single source of truth for the customer-facing brand name.
  *
- * The wordmark itself is baked into public/fmb-logo.png (served via
- * src/components/Logo.tsx), so the brand only appears as browser-readable
- * text where UI copy genuinely needs it — and when it does, prefer
- * interpolating BRAND.name over hardcoding the string.
+ * The logo lockup lives in public/fmb-logo.svg and is rendered through
+ * src/components/Logo.tsx. Prefer interpolating BRAND.name in customer-facing
+ * copy rather than hardcoding the string.
  */
 export const BRAND = {
   name: "FMB",
