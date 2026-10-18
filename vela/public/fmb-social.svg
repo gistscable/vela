@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#f7f8fa"/>
+  <rect width="1200" height="18" fill="#c92336"/>
+  <circle cx="1020" cy="105" r="265" fill="#edf1f5"/>
+  <circle cx="1120" cy="510" r="210" fill="#e8edf2"/>
+  <g transform="translate(96 170)">
+    <path fill="#c92336" d="M62 0 124 62 62 124 0 62z"/>
+    <path fill="#fff" d="m62 20 19 42H43zm0 84L43 63h38z"/>
+    <text x="158" y="76" fill="#082b50" font-family="Arial,Helvetica,sans-serif" font-size="82" font-weight="700" letter-spacing="-2">FMB</text>
+  </g>
+  <text x="100" y="386" fill="#082b50" font-family="Arial,Helvetica,sans-serif" font-size="54" font-weight="700">Banking that moves with you.</text>
+  <text x="102" y="448" fill="#526274" font-family="Arial,Helvetica,sans-serif" font-size="27">Everyday banking, made clear and simple.</text>
+  <rect x="100" y="510" width="75" height="6" rx="3" fill="#c92336"/>
+</svg>
