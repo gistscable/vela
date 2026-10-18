@@ -41,6 +41,17 @@ export function PasswordForm() {
       {state?.success && <Alert tone="success" title="Success">Your passcode has been changed.</Alert>}
       <PasswordInput name="currentPassword" label="Current passcode" toggleLabel="current password" autoComplete="current-password" required />
       <PasswordInput name="newPassword" label="New passcode" toggleLabel="new password" autoComplete="new-password" placeholder="At least 8 characters" required />
+      <Input
+        name="totpCode"
+        label="Authenticator code"
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        pattern="[0-9 ]{6,7}"
+        maxLength={7}
+        placeholder="6-digit code"
+        hint="Enter the current code from Google Authenticator to confirm it's you."
+        required
+      />
       <Button type="submit" loading={pending} variant="navy">
         Update passcode
       </Button>

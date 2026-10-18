@@ -1,14 +1,19 @@
 import Link from "next/link";
-import { Landmark, ShieldCheck } from "lucide-react";
+import { CreditCard, FileText, Landmark, LifeBuoy, ShieldCheck, Smartphone } from "lucide-react";
 import { requireUser } from "@/lib/auth";
-import { formatDate } from "@/lib/money";
 import { Badge, Panel } from "@/components/ui";
 import { PageHeader } from "@/components/transactions";
 import { PasswordForm, ProfileForm, UsernameForm } from "@/components/SettingsForms";
-import { SESSION_IDLE_LABEL } from "@/lib/session";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Customer Service & Settings — FMB" };
+
+const QUICK_LINKS = [
+  { href: "/statements", label: "Statements & documents", body: "View and print your monthly statements.", icon: FileText },
+  { href: "/cards", label: "Card services", body: "Freeze a card or change its daily limit.", icon: CreditCard },
+  { href: "/linked-accounts", label: "Linked accounts", body: "Manage external accounts used for transfers.", icon: Landmark },
+  { href: "/help", label: "Help & support", body: "Contact customer service or get security guidance.", icon: LifeBuoy },
+] as const;
 
 export default async function SettingsPage() {
   const user = await requireUser();
@@ -38,21 +43,33 @@ export default async function SettingsPage() {
             </div>
           </Panel>
 
-          <Panel title="Account status">
-            <div className="space-y-2 text-[12px] text-gray-700">
-              <p className="flex items-center justify-between border-b border-gray-100 pb-2">
-                <span>Member since</span>
-                <span className="font-semibold">{formatDate(user.createdAt)}</span>
-              </p>
-              <p className="flex items-center justify-between border-b border-gray-100 pb-2">
-                <span>Identity verification</span>
-                <Badge tone="amber">Not verified</Badge>
-              </p>
-              <p className="flex items-center justify-between">
-                <span>Session security</span>
-                <Badge tone="navy">Encrypted · {SESSION_IDLE_LABEL} idle</Badge>
-              </p>
+          <Panel title="Two-step verification">
+            <div className="flex items-start gap-3">
+              <Smartphone className="mt-0.5 h-4 w-4 shrink-0 text-bank-navy" />
+              <div className="min-w-0 flex-1">
+                <p className="flex flex-wrap items-center gap-2 text-[12px] font-semibold text-gray-900">
+                  Google Authenticator
+                  {user.mfaEnabled ? <Badge tone="green">Enabled</Badge> : <Badge tone="amber">Not set up</Badge>}
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed text-gray-600">
+                  {user.mfaEnabled
+                    ? "A six-digit code is required every time you sign in and whenever you change your passcode. Lost your phone? Contact customer service to have your authenticator reset."
+                    : "You will be asked to set up Google Authenticator the next time you sign in."}
+                </p>
+              </div>
             </div>
+          </Panel>
+
+          <Panel title="Quick links" bodyClassName="divide-y divide-gray-100 p-0">
+            {QUICK_LINKS.map(({ href, label, body, icon: Icon }) => (
+              <Link key={href} href={href} className="flex items-start gap-3 px-5 py-3 hover:bg-gray-50">
+                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-bank-navy" />
+                <span>
+                  <span className="block text-[12px] font-semibold text-gray-900">{label}</span>
+                  <span className="mt-0.5 block text-[11px] text-gray-600">{body}</span>
+                </span>
+              </Link>
+            ))}
           </Panel>
 
           <Panel title="External accounts">
