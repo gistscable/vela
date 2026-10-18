@@ -54,6 +54,22 @@ const NOTICES: Record<string, { tone: "success" | "error" | "info" | "warn"; tit
   "activity-unavailable": { tone: "info", title: "Activity not deleted", body: "That entry is no longer on the account." },
 };
 
+const SECTIONS = [
+  { id: "approvals", label: "Approvals" },
+  { id: "payments", label: "Payments" },
+  { id: "customers", label: "Customers & security" },
+  { id: "activity", label: "Account activity" },
+];
+
+function SectionHeading({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="border-b border-gray-300 pb-2 pt-3">
+      <h2 className="text-[18px] font-bold text-bank-navy">{title}</h2>
+      <p className="mt-0.5 text-[11.5px] text-gray-500">{description}</p>
+    </div>
+  );
+}
+
 export default async function AdminPage({ searchParams }: { searchParams: Promise<{ notice?: string; account?: string }> }) {
   const admin = await requireAdmin();
   const params = await searchParams;
@@ -126,14 +142,96 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
   }
   const queue = [...grouped.values()].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   const notice = params.notice ? NOTICES[params.notice] : undefined;
+  const pendingTotal = queue.length + enrollmentApplications.length + productApplications.length + externalAccounts.length;
+  const summary = [
+    { label: "Transactions", count: queue.length, href: "#approvals" },
+    { label: "Enrollments", count: enrollmentApplications.length, href: "#approvals" },
+    { label: "Account & card applications", count: productApplications.length, href: "#approvals" },
+    { label: "External accounts", count: externalAccounts.length, href: "#approvals" },
+  ];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <PageHeader
         title="Admin approvals"
-        subtitle={`Signed in as ${admin.email} · ${queue.length} item${queue.length === 1 ? "" : "s"} awaiting review`}
+        subtitle={`Signed in as ${admin.email} · ${pendingTotal} item${pendingTotal === 1 ? "" : "s"} awaiting review`}
       />
       {notice && <Alert tone={notice.tone} title={notice.title}>{notice.body}</Alert>}
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="admin-summary">
+        {summary.map((item) => (
+          <a key={item.label} href={item.href} className="block border border-gray-300 bg-white px-4 py-3 shadow-panel hover:border-bank-navy">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{item.label}</p>
+            <p className={`mt-1 text-[26px] font-bold leading-none tabular-nums ${item.count > 0 ? "text-bank-navy" : "text-gray-400"}`}>{item.count}</p>
+            <p className="mt-1.5 text-[10.5px] text-gray-500">{item.count > 0 ? "Needs review" : "All clear"}</p>
+          </a>
+        ))}
+      </div>
+
+      <nav aria-label="Admin sections" className="sticky top-0 z-10 -mx-1 flex flex-wrap gap-1 border border-gray-300 bg-white px-2 py-1.5 shadow-panel">
+        {SECTIONS.map((section) => (
+          <a key={section.id} href={`#${section.id}`} className="rounded px-3 py-1.5 text-[11.5px] font-semibold text-bank-navy hover:bg-bank-sand">{section.label}</a>
+        ))}
+      </nav>
+
+      <section id="approvals" className="scroll-mt-20 space-y-4">
+        <SectionHeading title="Approvals" description="Everything waiting on an administrator decision." />
+      <Panel title="Transactions awaiting approval" bodyClassName="p-0">
+        {queue.length === 0 ? (
+          <div className="px-5 py-10 text-center">
+            <CheckCircle2 className="mx-auto h-7 w-7 text-emerald-700" />
+            <p className="mt-2 text-[13px] font-bold text-gray-800">No transactions to review</p>
+            <p className="mt-1 text-[11px] text-gray-500">New balance-changing requests will appear here.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-200">
+            {queue.map((group) => {
+              const primary = group.rows[0];
+              const method = paymentMethodLabel(primary.paymentMethod);
+              const isAdminPayment = primary.reference?.startsWith("adminach_") || primary.reference?.startsWith("adminwire_");
+              const dateLabel = isAdminPayment ? "Activity date" : "Submitted";
+              return (
+                <article key={group.key} data-testid="approval-group" data-group-key={group.key} className="px-4 py-4 sm:px-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="flex flex-wrap items-center gap-2 text-[13px] font-bold text-gray-900">
+                        <Clock3 className="h-4 w-4 text-amber-700" />
+                        {safeTransactionDescription(primary.description)}
+                        {method && <span className="rounded-sm border border-gray-300 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-gray-600">{method}</span>}
+                      </p>
+                      <p className="mt-1 text-[10.5px] text-gray-500">{dateLabel} {formatDateTime(group.createdAt)} · {group.rows.length === 1 ? "1 account entry" : `${group.rows.length} linked account entries`}</p>
+                    </div>
+                    <span className="shrink-0 border border-amber-300 bg-amber-50 px-2 py-1 text-[9.5px] font-bold uppercase text-amber-900">Awaiting approval</span>
+                  </div>
+
+                  <div className="mt-3 divide-y divide-gray-100 border border-gray-200 bg-gray-50">
+                    {group.rows.map((row) => (
+                      <div key={row.id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5 text-[11px]">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-gray-800">{row.account.user.firstName} {row.account.user.lastName} · {row.account.name}</p>
+                          <p className="mt-0.5 truncate text-gray-500">{safeCounterparty(row.counterparty) || row.account.user.email}</p>
+                        </div>
+                        <p className={`shrink-0 font-bold tabular-nums ${row.amount > 0 ? "text-emerald-800" : "text-gray-900"}`}>{formatCents(row.amount, { sign: true })}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <form action={approveTransactionGroupAction}>
+                      <input type="hidden" name="groupKey" value={group.key} />
+                      <Button type="submit" variant="navy" size="sm">Approve and post</Button>
+                    </form>
+                    <form action={rejectTransactionGroupAction}>
+                      <input type="hidden" name="groupKey" value={group.key} />
+                      <Button type="submit" variant="outline" size="sm">Reject</Button>
+                    </form>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </Panel>
 
       <Panel title={`Enrollment applications · ${enrollmentApplications.length}`} bodyClassName="p-0">
         {enrollmentApplications.length === 0 ? (
@@ -234,34 +332,96 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         )}
       </Panel>
 
-      <Panel title={`Authenticator management · ${authenticatorUsers.length}`} bodyClassName="p-0">
-        {authenticatorUsers.length === 0 ? (
-          <div className="px-5 py-6 text-center text-[11px] text-gray-500">No enrolled authenticators need management.</div>
+      <Panel title="External-account review and verification" bodyClassName="p-0">
+        <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-[11px] leading-relaxed text-amber-950">
+          Verification amounts are shown to admins so they can share them with the customer through a separate trusted channel.
+        </div>
+        {externalAccounts.length === 0 ? (
+          <div className="px-5 py-8 text-center">
+            <CheckCircle2 className="mx-auto h-6 w-6 text-emerald-700" />
+            <p className="mt-2 text-[12px] font-semibold text-gray-700">No external accounts need review</p>
+          </div>
         ) : (
           <div className="divide-y divide-gray-200">
-            {authenticatorUsers.map((account) => (
-              <article key={account.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
-                <div>
-                  <p className="text-[12px] font-bold text-gray-900">{account.firstName} {account.lastName} · {account.email}</p>
-                  <p className="mt-0.5 text-[10px] text-gray-500">{account.role === "ADMIN" ? "Administrator" : "Customer"} · one authenticator enrolled</p>
+            {externalAccounts.map((account) => (
+              <article key={account.id} className="px-4 py-4 sm:px-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[12.5px] font-bold text-gray-900">{account.user.firstName} {account.user.lastName} · {account.user.email}</p>
+                    <p className="mt-1 text-[11px] text-gray-600">{account.nickname} · {account.institutionName} · {account.accountType === "SAVINGS" ? "Savings" : "Checking"} · •••• {account.accountMask}</p>
+                    <p className="mt-1 text-[10px] text-gray-500">Submitted {formatDateTime(account.createdAt)}</p>
+                  </div>
+                  <span className={`border px-2 py-1 text-[9px] font-bold uppercase ${account.status === "CHALLENGE_ACTIVE" ? "border-blue-200 bg-blue-50 text-blue-900" : "border-amber-300 bg-amber-50 text-amber-900"}`}>
+                    {account.status === "CHALLENGE_ACTIVE" ? "Challenge active" : "Awaiting review"}
+                  </span>
                 </div>
-                <form action={adminResetAuthenticatorAction} className="flex flex-wrap items-center gap-2">
-                  <input type="hidden" name="userId" value={account.id} />
-                  <label className="flex items-center gap-1.5 text-[9.5px] text-gray-600">
-                    <input type="checkbox" name="confirm" value="yes" required className="h-3.5 w-3.5 accent-[#b3202e]" />
-                    Reset after verifying request
-                  </label>
-                  <Button type="submit" variant="outline" size="sm">Reset authenticator</Button>
-                </form>
+                {account.status === "PENDING_APPROVAL" ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <form action={reviewExternalAccountAction}>
+                      <input type="hidden" name="externalAccountId" value={account.id} />
+                      <input type="hidden" name="decision" value="issue" />
+                      <Button type="submit" variant="navy" size="sm">Start verification challenge</Button>
+                    </form>
+                    <form action={reviewExternalAccountAction}>
+                      <input type="hidden" name="externalAccountId" value={account.id} />
+                      <input type="hidden" name="decision" value="reject" />
+                      <Button type="submit" variant="outline" size="sm">Reject destination</Button>
+                    </form>
+                  </div>
+                ) : (
+                  <div className="mt-3 border border-blue-200 bg-blue-50 px-3 py-3 text-[11px] text-blue-950">
+                    <p className="font-bold">Verification amounts: {formatCents(account.microdepositAmount1 ?? 0)} and {formatCents(account.microdepositAmount2 ?? 0)}</p>
+                    <p className="mt-1 leading-relaxed">Share these amounts separately; the customer must enter them on Linked Accounts. {account.microdepositExpiresAt ? `Expires ${formatDateTime(account.microdepositExpiresAt)}.` : ""} Attempts: {account.microdepositAttempts}/5.
+                    </p>
+                  </div>
+                )}
               </article>
             ))}
           </div>
         )}
-        <div className="border-t border-gray-200 bg-gray-50 px-4 py-2.5 text-[10px] leading-relaxed text-gray-600">
-          There is no email or SMS recovery code. After a reset, the user must enroll a new authenticator at next sign-in.
-        </div>
       </Panel>
+      </section>
 
+      <section id="payments" className="scroll-mt-20 space-y-4">
+        <SectionHeading title="Payments" description="Record a confirmed payment to one or all customers. It still needs approval before it posts." />
+      <Panel title="Send a payment to customer(s)" bodyClassName="p-5">
+        <div className="mb-4 border-l-4 border-bank-red bg-gray-50 px-3 py-2.5 text-[11px] leading-relaxed text-gray-600">
+          Record a confirmed payment from an individual or organization. Choose one customer deposit account or credit card, or all approved customers’ active checking accounts; the amount applies to each recipient. Balance changes still require approval.
+        </div>
+        {accounts.length === 0 ? (
+          <p className="text-[12px] text-gray-500">There are no active customer accounts to credit.</p>
+        ) : (
+          <form action={adminCreditAction} className="space-y-3">
+            <Select name="recipient" label="Recipient" defaultValue="" required>
+              <option value="" disabled>Select a customer account</option>
+              <option value="ALL_CUSTOMERS">All approved customers · checking accounts</option>
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.user.firstName} {account.user.lastName} — {account.name} · {accountTypeLabel(account.type)} · {account.accountNumber.slice(-4)}
+                </option>
+              ))}
+            </Select>
+            <Select name="paymentMethod" label="Payment method" defaultValue="ACH" required>
+              <option value="ACH">ACH</option>
+              <option value="WIRE">Wire</option>
+            </Select>
+            <Input name="senderName" label="Payment from · individual or organization" placeholder="Jordan Lee or Acme Foundation" autoComplete="off" required maxLength={65} />
+            <Input name="sourceName" label="Source bank or institution (optional)" placeholder="Example Credit Union" autoComplete="off" maxLength={80} />
+            <Input name="sourceLast4" label="Source account last four digits (optional)" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} placeholder="4321" autoComplete="off" />
+            <Input name="amount" label="Amount per recipient" inputMode="decimal" placeholder="$0.00" required />
+            <Input name="activityDate" label="Date shown in account activity" type="date" defaultValue={today} hint="This calendar date is used in the customer's transaction history." required />
+            <label className="flex items-start gap-2 text-[10.5px] leading-relaxed text-gray-600">
+              <input type="checkbox" name="confirm" value="yes" required className="mt-0.5" />
+              I independently confirmed these funds and details. This request still needs approval.
+            </label>
+            <Button type="submit" variant="navy" className="w-full">Submit payment for approval</Button>
+          </form>
+        )}
+      </Panel>
+      </section>
+
+      <section id="customers" className="scroll-mt-20 space-y-4">
+        <SectionHeading title="Customers &amp; security" description="Lock access, pause generated history and reset authenticators." />
       <Panel title={`Customer access & generated history · ${customers.length}`} bodyClassName="p-0">
         {customers.length === 0 ? (
           <div className="px-5 py-6 text-center text-[11px] text-gray-500">No approved customers to manage.</div>
@@ -312,6 +472,37 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
         )}
       </Panel>
 
+      <Panel title={`Authenticator management · ${authenticatorUsers.length}`} bodyClassName="p-0">
+        {authenticatorUsers.length === 0 ? (
+          <div className="px-5 py-6 text-center text-[11px] text-gray-500">No enrolled authenticators need management.</div>
+        ) : (
+          <div className="divide-y divide-gray-200">
+            {authenticatorUsers.map((account) => (
+              <article key={account.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
+                <div>
+                  <p className="text-[12px] font-bold text-gray-900">{account.firstName} {account.lastName} · {account.email}</p>
+                  <p className="mt-0.5 text-[10px] text-gray-500">{account.role === "ADMIN" ? "Administrator" : "Customer"} · one authenticator enrolled</p>
+                </div>
+                <form action={adminResetAuthenticatorAction} className="flex flex-wrap items-center gap-2">
+                  <input type="hidden" name="userId" value={account.id} />
+                  <label className="flex items-center gap-1.5 text-[9.5px] text-gray-600">
+                    <input type="checkbox" name="confirm" value="yes" required className="h-3.5 w-3.5 accent-[#b3202e]" />
+                    Reset after verifying request
+                  </label>
+                  <Button type="submit" variant="outline" size="sm">Reset authenticator</Button>
+                </form>
+              </article>
+            ))}
+          </div>
+        )}
+        <div className="border-t border-gray-200 bg-gray-50 px-4 py-2.5 text-[10px] leading-relaxed text-gray-600">
+          There is no email or SMS recovery code. After a reset, the user must enroll a new authenticator at next sign-in.
+        </div>
+      </Panel>
+      </section>
+
+      <section id="activity" className="scroll-mt-20 space-y-4">
+        <SectionHeading title="Account activity" description="Review and remove entries from a customer account." />
       <Panel title="Delete account activity" bodyClassName="p-0">
         <div className="border-b border-gray-100 px-4 py-3 sm:px-5">
           <p className="text-[11px] leading-relaxed text-gray-600">Remove a posted or pending entry from any customer account. Posted balances are rebuilt from what remains. Linked internal transfers and Quick Pay pairs are removed together.</p>
@@ -358,149 +549,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
           </div>
         )}
       </Panel>
-
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.85fr)]">
-        <Panel title="Transactions awaiting approval" bodyClassName="p-0">
-          {queue.length === 0 ? (
-            <div className="px-5 py-10 text-center">
-              <CheckCircle2 className="mx-auto h-7 w-7 text-emerald-700" />
-              <p className="mt-2 text-[13px] font-bold text-gray-800">No transactions to review</p>
-              <p className="mt-1 text-[11px] text-gray-500">New balance-changing requests will appear here.</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-200">
-              {queue.map((group) => {
-                const primary = group.rows[0];
-                const method = paymentMethodLabel(primary.paymentMethod);
-                const isAdminPayment = primary.reference?.startsWith("adminach_") || primary.reference?.startsWith("adminwire_");
-                const dateLabel = isAdminPayment ? "Activity date" : "Submitted";
-                return (
-                  <article key={group.key} data-testid="approval-group" data-group-key={group.key} className="px-4 py-4 sm:px-5">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="flex flex-wrap items-center gap-2 text-[13px] font-bold text-gray-900">
-                          <Clock3 className="h-4 w-4 text-amber-700" />
-                          {safeTransactionDescription(primary.description)}
-                          {method && <span className="rounded-sm border border-gray-300 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-gray-600">{method}</span>}
-                        </p>
-                        <p className="mt-1 text-[10.5px] text-gray-500">{dateLabel} {formatDateTime(group.createdAt)} · {group.rows.length === 1 ? "1 account entry" : `${group.rows.length} linked account entries`}</p>
-                      </div>
-                      <span className="shrink-0 border border-amber-300 bg-amber-50 px-2 py-1 text-[9.5px] font-bold uppercase text-amber-900">Awaiting approval</span>
-                    </div>
-
-                    <div className="mt-3 divide-y divide-gray-100 border border-gray-200 bg-gray-50">
-                      {group.rows.map((row) => (
-                        <div key={row.id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5 text-[11px]">
-                          <div className="min-w-0">
-                            <p className="font-semibold text-gray-800">{row.account.user.firstName} {row.account.user.lastName} · {row.account.name}</p>
-                            <p className="mt-0.5 truncate text-gray-500">{safeCounterparty(row.counterparty) || row.account.user.email}</p>
-                          </div>
-                          <p className={`shrink-0 font-bold tabular-nums ${row.amount > 0 ? "text-emerald-800" : "text-gray-900"}`}>{formatCents(row.amount, { sign: true })}</p>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <form action={approveTransactionGroupAction}>
-                        <input type="hidden" name="groupKey" value={group.key} />
-                        <Button type="submit" variant="navy" size="sm">Approve and post</Button>
-                      </form>
-                      <form action={rejectTransactionGroupAction}>
-                        <input type="hidden" name="groupKey" value={group.key} />
-                        <Button type="submit" variant="outline" size="sm">Reject</Button>
-                      </form>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </Panel>
-
-        <Panel title="Send a payment to customer(s)" bodyClassName="p-5">
-          <div className="mb-4 border-l-4 border-bank-red bg-gray-50 px-3 py-2.5 text-[11px] leading-relaxed text-gray-600">
-            Record a confirmed payment from an individual or organization. Choose one customer deposit account or credit card, or all approved customers’ active checking accounts; the amount applies to each recipient. Balance changes still require approval.
-          </div>
-          {accounts.length === 0 ? (
-            <p className="text-[12px] text-gray-500">There are no active customer accounts to credit.</p>
-          ) : (
-            <form action={adminCreditAction} className="space-y-3">
-              <Select name="recipient" label="Recipient" defaultValue="" required>
-                <option value="" disabled>Select a customer account</option>
-                <option value="ALL_CUSTOMERS">All approved customers · checking accounts</option>
-                {accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.user.firstName} {account.user.lastName} — {account.name} · {accountTypeLabel(account.type)} · {account.accountNumber.slice(-4)}
-                  </option>
-                ))}
-              </Select>
-              <Select name="paymentMethod" label="Payment method" defaultValue="ACH" required>
-                <option value="ACH">ACH</option>
-                <option value="WIRE">Wire</option>
-              </Select>
-              <Input name="senderName" label="Payment from · individual or organization" placeholder="Jordan Lee or Acme Foundation" autoComplete="off" required maxLength={65} />
-              <Input name="sourceName" label="Source bank or institution (optional)" placeholder="Example Credit Union" autoComplete="off" maxLength={80} />
-              <Input name="sourceLast4" label="Source account last four digits (optional)" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} placeholder="4321" autoComplete="off" />
-              <Input name="amount" label="Amount per recipient" inputMode="decimal" placeholder="$0.00" required />
-              <Input name="activityDate" label="Date shown in account activity" type="date" defaultValue={today} hint="This calendar date is used in the customer's transaction history." required />
-              <label className="flex items-start gap-2 text-[10.5px] leading-relaxed text-gray-600">
-                <input type="checkbox" name="confirm" value="yes" required className="mt-0.5" />
-                I independently confirmed these funds and details. This request still needs approval.
-              </label>
-              <Button type="submit" variant="navy" className="w-full">Submit payment for approval</Button>
-            </form>
-          )}
-        </Panel>
-      </div>
-
-      <Panel title="External-account review and verification" bodyClassName="p-0">
-        <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-[11px] leading-relaxed text-amber-950">
-          Verification amounts are shown to admins so they can share them with the customer through a separate trusted channel.
-        </div>
-        {externalAccounts.length === 0 ? (
-          <div className="px-5 py-8 text-center">
-            <CheckCircle2 className="mx-auto h-6 w-6 text-emerald-700" />
-            <p className="mt-2 text-[12px] font-semibold text-gray-700">No external accounts need review</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-200">
-            {externalAccounts.map((account) => (
-              <article key={account.id} className="px-4 py-4 sm:px-5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[12.5px] font-bold text-gray-900">{account.user.firstName} {account.user.lastName} · {account.user.email}</p>
-                    <p className="mt-1 text-[11px] text-gray-600">{account.nickname} · {account.institutionName} · {account.accountType === "SAVINGS" ? "Savings" : "Checking"} · •••• {account.accountMask}</p>
-                    <p className="mt-1 text-[10px] text-gray-500">Submitted {formatDateTime(account.createdAt)}</p>
-                  </div>
-                  <span className={`border px-2 py-1 text-[9px] font-bold uppercase ${account.status === "CHALLENGE_ACTIVE" ? "border-blue-200 bg-blue-50 text-blue-900" : "border-amber-300 bg-amber-50 text-amber-900"}`}>
-                    {account.status === "CHALLENGE_ACTIVE" ? "Challenge active" : "Awaiting review"}
-                  </span>
-                </div>
-                {account.status === "PENDING_APPROVAL" ? (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <form action={reviewExternalAccountAction}>
-                      <input type="hidden" name="externalAccountId" value={account.id} />
-                      <input type="hidden" name="decision" value="issue" />
-                      <Button type="submit" variant="navy" size="sm">Start verification challenge</Button>
-                    </form>
-                    <form action={reviewExternalAccountAction}>
-                      <input type="hidden" name="externalAccountId" value={account.id} />
-                      <input type="hidden" name="decision" value="reject" />
-                      <Button type="submit" variant="outline" size="sm">Reject destination</Button>
-                    </form>
-                  </div>
-                ) : (
-                  <div className="mt-3 border border-blue-200 bg-blue-50 px-3 py-3 text-[11px] text-blue-950">
-                    <p className="font-bold">Verification amounts: {formatCents(account.microdepositAmount1 ?? 0)} and {formatCents(account.microdepositAmount2 ?? 0)}</p>
-                    <p className="mt-1 leading-relaxed">Share these amounts separately; the customer must enter them on Linked Accounts. {account.microdepositExpiresAt ? `Expires ${formatDateTime(account.microdepositExpiresAt)}.` : ""} Attempts: {account.microdepositAttempts}/5.
-                    </p>
-                  </div>
-                )}
-              </article>
-            ))}
-          </div>
-        )}
-      </Panel>
+      </section>
 
       <div className="border border-gray-200 bg-white px-4 py-3 text-[10.5px] leading-relaxed text-gray-500">
         All balance-changing requests, including admin-entered customer payments, remain unposted until approved. Payments to multiple customers are grouped so the batch is approved or rejected together. The shared customer account cannot access this page.

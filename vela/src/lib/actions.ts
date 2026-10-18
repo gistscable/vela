@@ -439,12 +439,32 @@ export async function updateProfileAction(_prev: ActionState, fd: FormData): Pro
 
 export async function changePasswordAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const user = await requireUser();
+  if (user.mfaLockedUntil && user.mfaLockedUntil > new Date()) return { error: "Too many incorrect codes. Try again in a few minutes." };
+  if (!user.mfaEnabled || !user.totpSecretEncrypted) {
+    return { error: "Set up Google Authenticator before changing your passcode. Sign out and sign in again to enroll." };
+  }
   if (!(await bcrypt.compare(String(fd.get("currentPassword") ?? ""), user.passwordHash))) {
     return { error: "Your current passcode is incorrect." };
   }
   const next = String(fd.get("newPassword") ?? "");
   if (next.length < 8) return { error: "Your new passcode must be at least 8 characters." };
-  await db.user.update({ where: { id: user.id }, data: { passwordHash: await bcrypt.hash(next, 10) } });
+  if (await bcrypt.compare(next, user.passwordHash)) return { error: "Choose a new passcode that is different from your current one." };
+
+  let secret: string;
+  try { secret = decryptSensitive(user.totpSecretEncrypted); } catch { return { error: "Authenticator data is invalid. Ask an administrator to reset it." }; }
+  const step = verifyTotp(secret, str(fd, "totpCode"), user.totpLastUsedStep);
+  if (step === null) {
+    const attempts = (user.mfaFailedAttempts ?? 0) + 1;
+    await db.user.update({
+      where: { id: user.id },
+      data: { mfaFailedAttempts: attempts, mfaLockedUntil: attempts >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null },
+    });
+    return { error: "That authenticator code didn't match. Enter the current six-digit code from Google Authenticator." };
+  }
+  await db.user.update({
+    where: { id: user.id },
+    data: { passwordHash: await bcrypt.hash(next, 10), totpLastUsedStep: step, mfaFailedAttempts: 0, mfaLockedUntil: null },
+  });
   refresh();
   return { success: true };
 }
