@@ -4,7 +4,8 @@ import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatCents, formatDateTime } from "@/lib/money";
 import { paymentMethodLabel, safeCounterparty, safeTransactionDescription } from "@/lib/external-account-display";
-import { approveTransactionGroupAction, adminCreditAction, adminResetAuthenticatorAction, rejectTransactionGroupAction, reviewEnrollmentAction, reviewExternalAccountAction } from "@/lib/admin-actions";
+import { approveTransactionGroupAction, adminCreditAction, adminResetAuthenticatorAction, rejectTransactionGroupAction, reviewEnrollmentAction, reviewExternalAccountAction, reviewProductApplicationAction } from "@/lib/admin-actions";
+import { accountTypeLabel, productByCode, productKindLabel } from "@/lib/products";
 import { PageHeader } from "@/components/transactions";
 import { Alert, Button, Input, Panel, Select } from "@/components/ui";
 
@@ -24,7 +25,7 @@ const NOTICES: Record<string, { tone: "success" | "error" | "info" | "warn"; tit
   "external-rejected": { tone: "info", title: "External account rejected", body: "The destination cannot be used. No funds were moved." },
   "external-unavailable": { tone: "info", title: "External account already reviewed", body: "That destination is no longer waiting for review." },
   "enrollment-approved": { tone: "success", title: "Enrollment approved", body: "The applicant can now sign in without the generated history; their accounts keep their current balances." },
-  "enrollment-approved-history": { tone: "success", title: "Enrollment approved with history", body: "The applicant can now sign in. The generated Jan 2023–Oct 2026 activity has been provisioned." },
+  "enrollment-approved-history": { tone: "success", title: "Enrollment approved with history", body: "The applicant can now sign in. Generated Jan 2023–Oct 2026 activity has been provisioned, and the same debit and credit pattern will keep posting after that." },
   "enrollment-history-error": { tone: "error", title: "History could not be added", body: "Enrollment was approved, but the generated activity could not be provisioned. Review the new account before proceeding." },
   "enrollment-history-choice": { tone: "warn", title: "Choose an account history option", body: "Select whether to include the generated Jan 2023–Oct 2026 history before approving this enrollment." },
   "enrollment-rejected": { tone: "info", title: "Enrollment rejected", body: "The applicant cannot sign in. Any opening-funds request was also rejected without changing balances." },
@@ -33,13 +34,20 @@ const NOTICES: Record<string, { tone: "success" | "error" | "info" | "warn"; tit
   "authenticator-reset": { tone: "success", title: "Authenticator reset", body: "The user must set up Google Authenticator again the next time they sign in." },
   "authenticator-reset-confirm": { tone: "error", title: "Confirmation required", body: "Confirm the user reset before changing authenticator access." },
   "authenticator-unavailable": { tone: "info", title: "Authenticator not reset", body: "That user may already have an active reset or no authenticator to reset." },
+  "product-approved": { tone: "success", title: "Product application approved", body: "The new account or card is now on the customer's Account Summary." },
+  "product-approved-history": { tone: "success", title: "Product approved with history", body: "The account is open and generated activity from 2023 through today has been added, following the same debit and credit pattern." },
+  "product-history-error": { tone: "error", title: "History could not be added", body: "The product was approved, but generated activity could not be provisioned. Review the new account before proceeding." },
+  "product-history-choice": { tone: "warn", title: "Choose an account history option", body: "Select whether to include generated activity before approving this account or card." },
+  "product-rejected": { tone: "info", title: "Product application rejected", body: "No account or card was issued." },
+  "product-unavailable": { tone: "info", title: "Application already reviewed", body: "That product application is no longer awaiting a decision." },
+  "product-card-exists": { tone: "error", title: "Card already issued", body: "That checking account already has a debit card. The application was not changed." },
 };
 
 export default async function AdminPage({ searchParams }: { searchParams: Promise<{ notice?: string }> }) {
   const admin = await requireAdmin();
   const params = await searchParams;
   const today = new Date().toISOString().slice(0, 10);
-  const [pendingRows, accounts, externalAccounts, enrollmentApplications, authenticatorUsers] = await Promise.all([
+  const [pendingRows, accounts, externalAccounts, enrollmentApplications, productApplications, authenticatorUsers] = await Promise.all([
     db.transaction.findMany({
       where: { status: "PENDING_APPROVAL" },
       include: { account: { include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } } } },
@@ -59,6 +67,12 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
     db.user.findMany({
       where: { role: "CUSTOMER", enrollmentStatus: "PENDING_APPROVAL" },
       select: { id: true, email: true, firstName: true, lastName: true, phone: true, createdAt: true },
+      orderBy: { createdAt: "asc" },
+      take: 100,
+    }),
+    db.productApplication.findMany({
+      where: { status: "PENDING_APPROVAL" },
+      include: { user: { select: { firstName: true, lastName: true, email: true } } },
       orderBy: { createdAt: "asc" },
       take: 100,
     }),
@@ -108,7 +122,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                   </div>
                   <span className="border border-amber-300 bg-amber-50 px-2 py-1 text-[9px] font-bold uppercase text-amber-900">Awaiting enrollment approval</span>
                 </div>
-                <p className="mt-2 text-[10.5px] leading-relaxed text-gray-600">Choose whether to add generated account activity from Jan 2023 through Oct 2026. If you omit it, a new signup keeps its current balance ($0 before any separately approved funding). Any opening-funds request still needs separate approval.</p>
+                <p className="mt-2 text-[10.5px] leading-relaxed text-gray-600">Choose whether to add generated account activity from Jan 2023 through Oct 2026. After that, the same debit and credit pattern keeps posting so the ledger stays current. If you omit it, a new signup keeps its current balance ($0 before any separately approved funding). Any opening-funds request still needs separate approval.</p>
                 <div className="mt-3 flex flex-wrap items-end gap-2">
                   <form action={reviewEnrollmentAction} className="flex flex-wrap items-end gap-2">
                     <input type="hidden" name="userId" value={applicant.id} />
@@ -130,6 +144,61 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                 </div>
               </article>
             ))}
+          </div>
+        )}
+      </Panel>
+
+      <Panel title={`Account and card applications · ${productApplications.length}`} bodyClassName="p-0">
+        {productApplications.length === 0 ? (
+          <div className="px-5 py-7 text-center">
+            <CheckCircle2 className="mx-auto h-6 w-6 text-emerald-700" />
+            <p className="mt-2 text-[12px] font-semibold text-gray-700">No product applications awaiting review</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-200">
+            {productApplications.map((application) => {
+              const product = productByCode(application.productCode);
+              const needsHistory = application.kind === "ACCOUNT" || application.kind === "CREDIT_CARD";
+              return (
+                <article key={application.id} className="px-4 py-4 sm:px-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[12.5px] font-bold text-gray-900">{application.user.firstName} {application.user.lastName}</p>
+                      <p className="mt-1 text-[11px] text-gray-600">{application.user.email} · {product?.name ?? application.productCode} · {productKindLabel(application.kind)}</p>
+                      {application.nickname ? <p className="mt-1 text-[10px] text-gray-500">Nickname {application.nickname}</p> : null}
+                      <p className="mt-1 text-[10px] text-gray-500">Submitted {formatDateTime(application.createdAt)}</p>
+                    </div>
+                    <span className="border border-amber-300 bg-amber-50 px-2 py-1 text-[9px] font-bold uppercase text-amber-900">Awaiting product approval</span>
+                  </div>
+                  {needsHistory ? (
+                    <p className="mt-2 text-[10.5px] leading-relaxed text-gray-600">Choose whether to add generated activity from Jan 2023 through today, following the same debit and credit pattern as the enrollment history. If you omit it, the product opens at $0.</p>
+                  ) : (
+                    <p className="mt-2 text-[10.5px] leading-relaxed text-gray-600">Approving issues the debit card on the selected checking account. It appears in the Cards section under the customer&apos;s accounts.</p>
+                  )}
+                  <div className="mt-3 flex flex-wrap items-end gap-2">
+                    <form action={reviewProductApplicationAction} className="flex flex-wrap items-end gap-2">
+                      <input type="hidden" name="applicationId" value={application.id} />
+                      <input type="hidden" name="decision" value="approve" />
+                      {needsHistory ? (
+                        <div className="min-w-[260px]">
+                          <Select name="historyChoice" label="Starting account history" defaultValue="" required>
+                            <option value="" disabled>Choose an option</option>
+                            <option value="include">Include generated history · Jan 2023 through today</option>
+                            <option value="none">No generated history · open at $0</option>
+                          </Select>
+                        </div>
+                      ) : null}
+                      <Button type="submit" variant="navy" size="sm">Approve product</Button>
+                    </form>
+                    <form action={reviewProductApplicationAction}>
+                      <input type="hidden" name="applicationId" value={application.id} />
+                      <input type="hidden" name="decision" value="reject" />
+                      <Button type="submit" variant="outline" size="sm">Reject</Button>
+                    </form>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </Panel>
@@ -222,7 +291,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
         <Panel title="Send a payment to customer(s)" bodyClassName="p-5">
           <div className="mb-4 border-l-4 border-bank-red bg-gray-50 px-3 py-2.5 text-[11px] leading-relaxed text-gray-600">
-            Record a confirmed payment from an individual or organization. Choose one customer account or all approved customers’ active checking accounts; the amount applies to each recipient. Balance changes still require approval.
+            Record a confirmed payment from an individual or organization. Choose one customer deposit account or credit card, or all approved customers’ active checking accounts; the amount applies to each recipient. Balance changes still require approval.
           </div>
           {accounts.length === 0 ? (
             <p className="text-[12px] text-gray-500">There are no active customer accounts to credit.</p>
@@ -233,7 +302,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
                 <option value="ALL_CUSTOMERS">All approved customers · checking accounts</option>
                 {accounts.map((account) => (
                   <option key={account.id} value={account.id}>
-                    {account.user.firstName} {account.user.lastName} — {account.name}
+                    {account.user.firstName} {account.user.lastName} — {account.name} · {accountTypeLabel(account.type)} · {account.accountNumber.slice(-4)}
                   </option>
                 ))}
               </Select>

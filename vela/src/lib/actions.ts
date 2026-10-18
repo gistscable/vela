@@ -11,6 +11,7 @@ import { parseCents } from "@/lib/money";
 import { lastFourDigits } from "@/lib/external-account-display";
 import { claimUsername, findUserByLoginIdentifier, isUniqueViolation, isUsernameTaken, USERNAME_UNAVAILABLE_MESSAGE } from "@/lib/identity";
 import { validateUsername } from "@/lib/username";
+import { isCheckingLikeType, productByCode } from "@/lib/products";
 
 // Compared against when no user matches, so "unknown user" and "wrong passcode" take similar time.
 const DUMMY_PASSWORD_HASH = "$2a$10$uY4y1.VITBIwxsGJUvxHnO/WMzQTPQt4TC3yc53PawwiHIlwvyc36";
@@ -21,7 +22,7 @@ const ref = (p: string) => `${p}_${Date.now().toString(36)}${Math.random().toStr
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? "").trim();
 
 function refresh() {
-  for (const p of ["/dashboard", "/transactions", "/transfer", "/receive", "/bill-pay", "/cards", "/linked-accounts", "/settings"]) revalidatePath(p);
+  for (const p of ["/dashboard", "/transactions", "/transfer", "/receive", "/bill-pay", "/cards", "/linked-accounts", "/settings", "/products", "/admin"]) revalidatePath(p);
   revalidatePath("/accounts", "layout");
 }
 
@@ -337,6 +338,39 @@ async function ownCard(userId: string, cardId: string) {
   if (!card) return null;
   const account = await db.account.findFirst({ where: { id: card.accountId, userId } });
   return account ? card : null;
+}
+
+export async function applyProductAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const user = await requireUser();
+  const product = productByCode(str(fd, "productCode"));
+  if (!product) return { error: "Choose a product to apply for." };
+  const nickname = str(fd, "nickname").slice(0, 40) || null;
+  const linkedAccountId = str(fd, "linkedAccountId") || null;
+
+  if (product.kind === "DEBIT_CARD") {
+    if (!linkedAccountId) return { error: "Choose the checking account this debit card should draw from." };
+    const account = await ownAccount(user.id, linkedAccountId);
+    if (!account || !isCheckingLikeType(account.type)) return { error: "Choose a checking account for this debit card." };
+    const existingCard = await db.card.findFirst({ where: { accountId: account.id, kind: "DEBIT", status: { not: "CLOSED" } } });
+    if (existingCard) return { error: "That account already has a debit card. Freeze it from Card Services if you need to replace it." };
+  }
+
+  const pendingWhere: Record<string, unknown> = { userId: user.id, productCode: product.code, status: "PENDING_APPROVAL" };
+  if (product.kind === "DEBIT_CARD") pendingWhere.linkedAccountId = linkedAccountId;
+  const pending = await db.productApplication.findFirst({ where: pendingWhere });
+  if (pending) return { error: "You already have an application for this product awaiting review." };
+
+  await db.productApplication.create({
+    data: {
+      userId: user.id,
+      kind: product.kind,
+      productCode: product.code,
+      linkedAccountId: product.kind === "DEBIT_CARD" ? linkedAccountId : null,
+      nickname,
+    },
+  });
+  refresh();
+  return { success: true, message: "Application submitted. The product will appear on your accounts after it is approved." };
 }
 
 export async function toggleCardAction(fd: FormData): Promise<void> {

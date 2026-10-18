@@ -18,13 +18,14 @@ import type { Metadata } from "next";
 export const metadata: Metadata = { title: "Services — FMB" };
 
 const SERVICES = [
+  { href: "/products", title: "Open an account or apply for a card", body: "Apply for business checking, extra savings, a debit card or a credit card. New products appear after approval.", icon: Landmark },
   { href: "/transfer?tab=transfer", title: "Transfer between accounts", body: "Move money between your checking and savings accounts.", icon: ArrowLeftRight },
   { href: "/transfer?tab=send", title: "Send money", body: "Send money to another FMB member using Quick Pay.", icon: ArrowUpRight },
   { href: "/receive", title: "Receive money", body: "Request money from another FMB member.", icon: HandCoins },
   { href: "/mobile-deposit", title: "Mobile deposit", body: "Submit check details for mobile deposit; images stay on your device.", icon: Camera },
   { href: "/transfer?tab=deposit", title: "Add funds from bank", body: "Add funds to your account using an available deposit option.", icon: Landmark },
   { href: "/bill-pay", title: "Bill Pay", body: "Save billers and schedule payments.", icon: ReceiptText },
-  { href: "/cards", title: "Card services", body: "View the virtual card, freeze or unfreeze it, and adjust its spending limit.", icon: CreditCard },
+  { href: "/cards", title: "Card services", body: "View issued cards, freeze or unfreeze them, and adjust spending limits.", icon: CreditCard },
   { href: "/transactions", title: "Account activity", body: "Search your account activity and track transactions.", icon: FileText },
   { href: "/statements", title: "Statements & documents", body: "Review and print monthly account summaries.", icon: FileText },
   { href: "/linked-accounts", title: "Linked accounts", body: "Add external accounts for transfers.", icon: Landmark },

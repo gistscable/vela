@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CreditCard, PiggyBank, Wallet } from "lucide-react";
+import { ArrowLeft, Briefcase, CreditCard, Landmark, PiggyBank, Wallet } from "lucide-react";
+import { accountTypeLabel } from "@/lib/products";
 import { requireUser } from "@/lib/auth";
 import { getAccountForUser, getTransactions } from "@/lib/queries";
 import { formatAccountNumberLong, formatCents, maskAccountNumber } from "@/lib/money";
@@ -26,7 +27,15 @@ export default async function AccountDetailPage({
   const monthIn = monthTx.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0);
   const monthOut = monthTx.filter((t) => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
 
-  const Icon = account.type === "SAVINGS" ? PiggyBank : Wallet;
+  const Icon = account.type === "SAVINGS" || account.type === "BUSINESS_SAVINGS" || account.type === "MONEY_MARKET"
+    ? PiggyBank
+    : account.type === "BUSINESS_CHECKING"
+      ? Briefcase
+      : account.type === "CD"
+        ? Landmark
+        : account.type === "CREDIT"
+          ? CreditCard
+          : Wallet;
 
   return (
     <div>
@@ -69,8 +78,8 @@ export default async function AccountDetailPage({
               <Icon className="h-5 w-5" />
             </span>
             <div>
-              <p className="text-[11px] uppercase tracking-wide text-white/70">Available balance</p>
-              <p className="text-[26px] font-bold leading-tight">{formatCents(account.balance)}</p>
+              <p className="text-[11px] uppercase tracking-wide text-white/70">{account.type === "CREDIT" ? "Current balance" : "Available balance"}</p>
+              <p className="text-[26px] font-bold leading-tight">{formatCents(account.type === "CREDIT" ? Math.abs(account.balance) : account.balance)}</p>
             </div>
           </div>
         </div>
@@ -88,10 +97,10 @@ export default async function AccountDetailPage({
           <div>
             <dt className="text-[10.5px] font-bold uppercase tracking-wide text-gray-500">Account type</dt>
             <dd className="mt-1 text-[13px] font-semibold text-gray-900">
-              {account.type === "SAVINGS" ? "Savings" : "Checking"}
+              {accountTypeLabel(account.type)}
             </dd>
           </div>
-          {account.type === "SAVINGS" && account.apy ? (
+          {account.apy ? (
             <div>
               <dt className="text-[10.5px] font-bold uppercase tracking-wide text-gray-500">Interest rate</dt>
               <dd className="mt-1 text-[13px] font-semibold text-bank-red">{account.apy}% APY</dd>

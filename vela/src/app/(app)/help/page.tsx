@@ -14,6 +14,8 @@ const FAQS = [
   { question: "How does mobile check deposit work?", answer: "Check images stay on your device. Your deposit appears in account activity as it is processed." },
   { question: "How do ACH deposits and bill payments work?", answer: "Deposit and bill payment details appear in account activity as they are processed." },
   { question: "Where are statements and card controls?", answer: "Open Services from the bottom navigation (or Menu from the top), then choose Statements & documents or Cards & products. They are also available from the desktop navigation." },
+  { question: "How do I open another account or get a card?", answer: "Use Open an account from Account Summary or Services. You can apply for business checking and savings, extra personal accounts, a debit card on a checking account, or a credit card. Each application is reviewed; after approval the product appears below your existing accounts (cards in the Cards section). An administrator can also credit deposit accounts and credit cards." },
+  { question: "Why does older activity keep appearing?", answer: "If generated history was included when the account was approved, the same pattern of payroll, bills, transfers, debits and credits continues after opening so the ledger stays current as days pass." },
 ];
 
 export default async function HelpPage() {

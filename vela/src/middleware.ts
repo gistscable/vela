@@ -13,6 +13,8 @@ const PROTECTED_PREFIXES = [
   "/bill-pay",
   "/linked-accounts",
   "/cards",
+  "/products",
+  "/admin",
   "/statements",
   "/settings",
 ];

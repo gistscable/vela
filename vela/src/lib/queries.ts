@@ -1,5 +1,7 @@
 import "server-only";
-import { db, type Account, type Transaction } from "@/lib/db";
+import { db, type Account, type Card, type Transaction } from "@/lib/db";
+import { continueUserHistory } from "@/lib/history-continue";
+import { isCreditAccountType } from "@/lib/products";
 
 /** Read-side queries shared by account/dashboard/statement pages. */
 
@@ -42,14 +44,34 @@ export async function getTransactions(
   return rows.map((t: any) => ({ ...t, account: byId.get(t.accountId) }));
 }
 
+export type CardWithAccount = Card & { account: Account };
+
 export async function getOverview(userId: string) {
+  try {
+    await continueUserHistory(db, userId);
+  } catch (error) {
+    console.error("Failed to continue generated account history", userId, error);
+  }
   const accounts = await getAccounts(userId);
-  const totalBalance = accounts.reduce((s: number, a: any) => s + a.balance, 0);
-  const savingsAccount = accounts.find((a: any) => a.type === "SAVINGS") ?? null;
-  const checking = accounts.find((a: any) => a.type === "CHECKING");
-  const card = checking
-    ? await db.card.findFirst({ where: { accountId: checking.id }, orderBy: { createdAt: "asc" } })
-    : null;
+  const depositAccounts = accounts.filter((account) => !isCreditAccountType(account.type));
+  const creditAccounts = accounts.filter((account) => isCreditAccountType(account.type));
+  const totalBalance = depositAccounts.reduce((s: number, a: any) => s + a.balance, 0);
+  const savingsAccount = depositAccounts.find((a: any) => a.type === "SAVINGS") ?? null;
+  const cardsRaw = accounts.length
+    ? await db.card.findMany({ where: { accountId: { in: accounts.map((account) => account.id) } }, orderBy: { createdAt: "asc" } })
+    : [];
+  const byId = new Map(accounts.map((account) => [account.id, account]));
+  const cards: CardWithAccount[] = cardsRaw
+    .map((card) => {
+      const account = byId.get(card.accountId);
+      return account ? { ...card, account } : null;
+    })
+    .filter((card): card is CardWithAccount => Boolean(card));
+  const card = cards[0] ?? null;
+  const pendingApplications = await db.productApplication.findMany({
+    where: { userId, status: "PENDING_APPROVAL" },
+    orderBy: { createdAt: "desc" },
+  });
   const recentTransactions = await getTransactions(userId, { take: 12 });
 
   const now = new Date();
@@ -58,8 +80,10 @@ export async function getOverview(userId: string) {
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const all = await getTransactions(userId, { take: 4000 });
   const posted = all.filter((t: any) => t.status === "COMPLETED");
+  const depositIds = new Set(depositAccounts.map((account) => account.id));
+  const depositPosted = posted.filter((t: any) => depositIds.has(t.accountId));
   const sumRange = (from: Date, to: Date, sign: 1 | -1) =>
-    posted
+    depositPosted
       .filter((t: any) => t.createdAt >= from && t.createdAt < to && (sign === 1 ? t.amount > 0 : t.amount < 0))
       .reduce((s: number, t: any) => s + Math.abs(t.amount), 0);
   const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
@@ -75,9 +99,9 @@ export async function getOverview(userId: string) {
     spendingByCategory.set(t.category, (spendingByCategory.get(t.category) ?? 0) + Math.abs(t.amount));
   }
 
-  // Balance history: weekly points over the last 8 weeks (all accounts).
+  // Balance history: weekly points over the last 8 weeks (deposit accounts).
   const balanceHistory: { label: string; balance: number }[] = [];
-  const sortedAsc = [...posted].sort((a: any, b: any) => a.createdAt.getTime() - b.createdAt.getTime());
+  const sortedAsc = [...depositPosted].sort((a: any, b: any) => a.createdAt.getTime() - b.createdAt.getTime());
   for (let w = 7; w >= 0; w--) {
     const point = new Date(now.getTime() - w * 7 * 24 * 60 * 60 * 1000);
     const balance = sortedAsc
@@ -90,10 +114,14 @@ export async function getOverview(userId: string) {
   }
 
   return {
-    accounts,
+    accounts: depositAccounts,
+    creditAccounts,
+    allAccounts: accounts,
     totalBalance,
     savingsAccount,
     card,
+    cards,
+    pendingApplications,
     recentTransactions,
     monthIncome,
     monthSpending,

@@ -9,7 +9,7 @@ export function CardVisual({
   card,
   holderName,
 }: {
-  card: { id: string; last4: string; brand: string; status: string; dailyLimit: number; spentToday: number };
+  card: { id: string; last4: string; brand: string; kind?: string; status: string; dailyLimit: number; spentToday: number; creditLimit?: number | null };
   holderName: string;
 }) {
   const [show, setShow] = useState(false);
@@ -34,7 +34,7 @@ export function CardVisual({
         <div className="flex items-start justify-between">
           <div>
             <p className="text-[12px] font-bold uppercase tracking-[0.22em]">FMB</p>
-            <p className="mt-0.5 text-[10px] uppercase tracking-[0.18em] text-white/70">{card.brand} Debit</p>
+            <p className="mt-0.5 text-[10px] uppercase tracking-[0.18em] text-white/70">{card.brand} {card.kind === "CREDIT" ? "Credit" : "Debit"}</p>
             {frozen && (
               <span className="mt-2 inline-flex items-center gap-1 border border-white/40 px-2 py-0.5 text-[9.5px] font-bold uppercase tracking-wider">
                 <Lock className="h-3 w-3" /> Frozen
