@@ -50,7 +50,7 @@ describe("idle session cookie", () => {
     expect(await auth.getSessionUserId()).toBe(user.id);
   });
 
-  it("treats an expired JWT as signed out and sends the member to sign-in with an idle notice", async () => {
+  it("treats an expired JWT as signed out and hands off to the session-ending route with an idle notice", async () => {
     const user = await addUser("idle-expired@example.test");
     const now = Math.floor(Date.now() / 1000);
     const token = await new SignJWT({ sub: user.id, kind: "session" })
@@ -62,8 +62,19 @@ describe("idle session cookie", () => {
 
     expect(await auth.getSessionUserId()).toBeNull();
     const result = await run(() => auth.requireUser());
-    expect(result.redirectedTo).toBe(`/login?notice=${SESSION_IDLE_NOTICE}`);
-    expect(cookieJar.has(SESSION_COOKIE)).toBe(false);
+    // Server Components cannot delete cookies in Next.js 15, so requireUser
+    // must not clear the cookie itself: it redirects to /api/auth/end, whose
+    // route handler clears the cookies and lands on /login?notice=idle.
+    expect(result.redirectedTo).toBe(`/api/auth/end?notice=${SESSION_IDLE_NOTICE}`);
+    expect(cookieJar.has(SESSION_COOKIE)).toBe(true);
+  });
+
+  it("sends a locked member to the session-ending route instead of deleting cookies itself", async () => {
+    const user = await addUser("idle-locked@example.test", { accessLocked: true, lockReason: "Hold for review." });
+    await auth.setSessionCookie(user.id);
+    const result = await run(() => auth.requireUser());
+    expect(result.redirectedTo).toBe("/api/auth/end");
+    expect(cookieJar.has(SESSION_COOKIE)).toBe(true);
   });
 });
 
@@ -89,5 +100,21 @@ describe("idle session actions", () => {
     expect(await actions.expireIdleSessionAction()).toEqual({ ok: true });
     expect(cookieJar.has(SESSION_COOKIE)).toBe(false);
     expect(await auth.getSessionUserId()).toBeNull();
+  });
+});
+
+describe("GET /api/auth/end", () => {
+  it("clears the auth cookies and redirects to sign-in, keeping only the idle notice", async () => {
+    const { GET } = await import("@/app/api/auth/end/route");
+    const response = await GET(new Request(`https://example.test/api/auth/end?notice=${SESSION_IDLE_NOTICE}`));
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toContain(`/login?notice=${SESSION_IDLE_NOTICE}`);
+    const setCookies = response.headers.getSetCookie().join("\n");
+    expect(setCookies).toContain(SESSION_COOKIE);
+    expect(setCookies).toContain("fmb_mfa_challenge");
+
+    const noNotice = await GET(new Request("https://example.test/api/auth/end?notice=https://evil.example"));
+    expect(noNotice.headers.get("location")).toContain("/login");
+    expect(noNotice.headers.get("location")).not.toContain("evil");
   });
 });
