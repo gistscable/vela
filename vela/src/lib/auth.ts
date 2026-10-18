@@ -65,6 +65,8 @@ export async function clearAuthCookies(): Promise<void> {
   jar.delete(MFA_COOKIE);
 }
 
+export const MFA_COOKIE_NAME = MFA_COOKIE;
+
 export async function getSessionUserId(): Promise<string | null> {
   const session = await readSession();
   if (!session || session === "expired") return null;
@@ -86,15 +88,16 @@ export async function requireUser(): Promise<User> {
   }
   const session = await readSession();
   if (session === "expired") {
-    await clearAuthCookies();
-    redirect(`/login?notice=${SESSION_IDLE_NOTICE}`);
+    // Cookies cannot be deleted from a Server Component in Next.js 15 (it
+    // throws, which is what crashed the app layout), so hand off to the
+    // /api/auth/end route handler, which clears them and redirects to /login.
+    redirect(`/api/auth/end?notice=${SESSION_IDLE_NOTICE}`);
   }
   if (!session) redirect("/login");
   const user = await db.user.findUnique({ where: { id: session.sub } });
   if (!user || user.enrollmentStatus !== "APPROVED") redirect("/login");
   if (user.accessLocked) {
-    await clearAuthCookies();
-    redirect("/login");
+    redirect("/api/auth/end");
   }
   return user;
 }

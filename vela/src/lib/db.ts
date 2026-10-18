@@ -21,6 +21,7 @@ import path from "node:path";
 // with "Cannot find module '.prisma/client/default'". Keep this package in
 // next.config.mjs -> serverExternalPackages so it stays a runtime require.
 import { PrismaClient } from "@prisma/client";
+import { wrapPrismaForMissingSchema } from "@/lib/schema-compat";
 
 export type User = {
   id: string; email: string; username: string | null; usernameNormalized: string | null;
@@ -436,7 +437,10 @@ function createPrismaClient(): any {
   // The client comes from the static import above so the dependency is
   // visible to the bundler; the wrapper keeps the loosely-typed `Database`
   // surface the rest of the app is written against.
-  return new PrismaClient();
+  // Production Postgres may lag the app schema (missing columns/table from
+  // the latest release): wrap reads so they retry without the new fields
+  // instead of crashing every page. See schema-compat.ts.
+  return wrapPrismaForMissingSchema(new PrismaClient());
 }
 
 export const db: Database = usePostgres ? createPrismaClient() : (client as Database);
