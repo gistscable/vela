@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireUser } from "@/lib/auth";
@@ -7,6 +6,7 @@ import { getStatementsData } from "@/lib/queries";
 import { formatDate, formatCents, maskAccountNumber } from "@/lib/money";
 import { isAdminCreditReference, safeCounterparty, safeTransactionDescription } from "@/lib/external-account-display";
 import { PrintButton } from "@/components/PrintButton";
+import { Logo } from "@/components/Logo";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Statement — FMB" };
@@ -45,7 +45,7 @@ export default async function StatementPage({
         {/* Statement letterhead */}
         <div className="flex flex-col justify-between gap-3 border-b-2 border-bank-navy px-8 pb-5 pt-7 sm:flex-row sm:items-start">
           <div>
-            <Image src="/fmb-logo.png" alt="FMB" width={195} height={30} priority className="h-[30px] w-auto" />
+            <Logo />
             <p className="mt-1 text-[11px] uppercase tracking-[0.18em] text-bank-red">Monthly account statement</p>
           </div>
           <div className="text-right text-[12px]">
