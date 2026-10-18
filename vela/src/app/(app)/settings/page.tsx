@@ -48,13 +48,13 @@ export default async function SettingsPage() {
               <Smartphone className="mt-0.5 h-4 w-4 shrink-0 text-bank-navy" />
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-2 text-[12px] font-semibold text-gray-900">
-                  Google Authenticator
+                  Two-step verification
                   {user.mfaEnabled ? <Badge tone="green">Enabled</Badge> : <Badge tone="amber">Not set up</Badge>}
                 </p>
                 <p className="mt-1 text-[11px] leading-relaxed text-gray-600">
                   {user.mfaEnabled
                     ? "A six-digit code is required every time you sign in and whenever you change your passcode. Lost your phone? Contact customer service to have your authenticator reset."
-                    : "You will be asked to set up Google Authenticator the next time you sign in."}
+                    : "You will be asked to set up Authenticator code the next time you sign in."}
                 </p>
               </div>
             </div>
