@@ -7,7 +7,7 @@ import { paymentMethodLabel, safeCounterparty, safeTransactionDescription } from
 import { adminEnrollCustomerAction, approveTransactionGroupAction, adminCreditAction, adminDeleteActivityAction, adminLockUserAction, adminPauseHistoryAction, adminResetAuthenticatorAction, adminUnlockUserAction, rejectTransactionGroupAction, reviewEnrollmentAction, reviewExternalAccountAction, reviewProductApplicationAction } from "@/lib/admin-actions";
 import { accountTypeLabel, productByCode, productKindLabel } from "@/lib/products";
 import { PageHeader } from "@/components/transactions";
-import { Alert, Button, Input, Panel, Select, Textarea } from "@/components/ui";
+import { Alert, Button, Input, Panel, PasswordInput, Select, Textarea } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Admin approvals — FMB" };
 
@@ -193,7 +193,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <Input label="Phone (optional)" name="phone" type="tel" autoComplete="tel" placeholder="(555) 555-0100" />
-              <Input label="Temporary passcode" name="password" type="password" autoComplete="new-password" placeholder="At least 8 characters" required />
+              <PasswordInput label="Temporary passcode" name="password" autoComplete="new-password" placeholder="At least 8 characters" required toggleLabel="temporary passcode" />
             </div>
             <Select name="historyChoice" label="Starting account history" defaultValue="" required>
               <option value="" disabled>Choose an option</option>
