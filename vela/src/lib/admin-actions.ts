@@ -268,7 +268,7 @@ export async function adminEnrollCustomerAction(formData: FormData) {
   const historyChoice = String(formData.get("historyChoice") ?? "").trim();
 
   if (!firstName || !lastName || !email) redirect("/admin?notice=enroll-error");
-  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) redirect("/admin?notice=enroll-error");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) redirect("/admin?notice=enroll-error");
   const username = validateUsername(usernameRaw);
   if (!username.ok) redirect("/admin?notice=enroll-invalid-username");
   if (password.length < 8) redirect("/admin?notice=enroll-error");
