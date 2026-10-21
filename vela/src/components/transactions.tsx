@@ -13,8 +13,16 @@ export function TransactionRow({ tx, dense = false }: { tx: Transaction; dense?:
         tx.status === "PENDING" ? "Pending" :
           tx.status === "FAILED" ? "Failed" : null;
   const description = safeTransactionDescription(tx.description);
-  const counterparty = isAdminCreditReference(tx.reference) ? null : safeCounterparty(tx.counterparty);
   const method = paymentMethodLabel(tx.paymentMethod);
+  const rawCounterparty = safeCounterparty(tx.counterparty);
+  // Admin credits previously hid their counterparty, so e.g. Payne showed only a bare date
+  // ("Oct 21, 2026 · 12:00 PM") while every other row shows a prefix like "ACH debit · …"
+  // or "FMB debit card · …" / "T-Mobile · …". Keep the admin-entered source
+  // (e.g. "Example Credit Union · •••• 4321") when present, and fall back to
+  // "ACH credit" / "Wire credit" when the admin left Source blank so the row
+  // still looks like a normal incoming credit.
+  const counterparty =
+    rawCounterparty ?? (isAdminCreditReference(tx.reference) ? `${method ?? "ACH"} credit` : null);
 
   return (
     <div className={`flex items-center justify-between gap-3 border-b border-gray-200 last:border-0 ${dense ? "px-4 py-3" : "px-5 py-4"}`}>
