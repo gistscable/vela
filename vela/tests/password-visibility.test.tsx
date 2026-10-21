@@ -109,23 +109,16 @@ describe("password fields on each form", () => {
     expect(actions.loginAction).not.toHaveBeenCalled();
   });
 
-  it("enrollment: requires Username / User ID alongside email and phone, and has a password toggle", async () => {
-    const user = userEvent.setup();
+  it("enrollment: public self-enrollment is disabled — shows contact-bank card and no PII fields", async () => {
     render(<SignupForm />);
-    const username = screen.getByLabelText("Username / User ID");
-    expect(username).toBeRequired();
-    expect(username).toHaveAttribute("name", "username");
-    expect(screen.getByLabelText("Email address")).toBeRequired();
-    expect(screen.getByLabelText(/Phone number/)).toBeInTheDocument();
-
-    const password = screen.getByLabelText("Create passcode");
-    expect(password).toHaveAttribute("type", "password");
-    await user.type(password, "pw-12345678");
-    await user.click(screen.getByRole("button", { name: "Show password" }));
-    expect(password).toHaveAttribute("type", "text");
-    expect((password as HTMLInputElement).value).toBe("pw-12345678");
-    await user.click(screen.getByRole("button", { name: "Hide password" }));
-    expect(password).toHaveAttribute("type", "password");
+    expect(screen.getByRole("heading", { name: /Enrollment is handled by your bank/i })).toBeInTheDocument();
+    expect(screen.getByText(/To open an account, contact FMB/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Username / User ID")).toBeNull();
+    expect(screen.queryByLabelText("Email address")).toBeNull();
+    expect(screen.queryByLabelText(/Create passcode/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Show password/i })).toBeNull();
+    expect(screen.getByRole("link", { name: /Contact Support/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /Sign in/i }).length).toBeGreaterThanOrEqual(1);
     expect(actions.signupAction).not.toHaveBeenCalled();
   });
 

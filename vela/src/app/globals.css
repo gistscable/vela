@@ -6,8 +6,24 @@
   color-scheme: light;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scrollbar-gutter: stable;
+}
+
 body {
   @apply bg-white font-sans text-[14px] leading-[1.5] text-bank-ink antialiased;
+  overflow-x: hidden;
+}
+
+/* Prevent iOS Safari auto-zoom on focus: inputs must be >=16px on small screens */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }
 
 /* Institutional link styling */

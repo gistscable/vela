@@ -43,7 +43,7 @@ const RATE_ROWS = [
   { product: "High-Yield Online Savings", rate: "4.10%", apy: "4.25%", note: "Minimum $500 to open" },
   { product: "12-Month Certificate of Deposit", rate: "3.90%", apy: "4.00%", note: "Minimum $1,000 to open" },
   { product: "60-Month Certificate of Deposit", rate: "3.45%", apy: "3.50%", note: "Minimum $1,000 to open" },
-  { product: "Advantage SafeBalance Banking®", rate: "0.02%", apy: "0.02%", note: "No monthly maintenance fee" },
+  { product: "Everyday Checking", rate: "0.02%", apy: "0.02%", note: "No monthly maintenance fee" },
 ];
 
 const FOOTER_COLS = [
@@ -53,7 +53,7 @@ const FOOTER_COLS = [
   },
   {
     title: "Business & Wealth",
-    links: ["Small Business", "Commercial Banking", "Wealth Management", "Merrill Investing", "Private Bank", "Retirement"],
+    links: ["Small Business", "Commercial Banking", "Wealth Management", "FMB Investing", "Private Bank", "Retirement"],
   },
   {
     title: "Support",
@@ -112,27 +112,28 @@ export default async function LandingPage() {
               </a>
             ))}
           </nav>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 sm:gap-2.5">
             {signedIn ? (
               <Link
                 href="/dashboard"
-                className="inline-flex h-9 items-center gap-1.5 rounded bg-bank-red px-5 text-[13px] font-bold text-white hover:bg-bank-redDark"
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded bg-bank-red px-4 text-[13px] font-bold text-white hover:bg-bank-redDark sm:px-5"
               >
-                Online Banking <ArrowRight className="h-3.5 w-3.5" />
+                Online Banking <ArrowRight className="h-3.5 w-3.5 shrink-0" />
               </Link>
             ) : (
               <>
                 <Link
                   href="/login"
-                  className="inline-flex h-9 items-center rounded border border-gray-400 bg-white px-4 text-[13px] font-bold text-bank-navy hover:bg-gray-50"
+                  className="inline-flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded border border-gray-400 bg-white px-3.5 text-[13px] font-bold leading-none text-bank-navy hover:bg-gray-50 sm:px-4"
                 >
                   Log in
                 </Link>
                 <Link
                   href="/signup"
-                  className="inline-flex h-9 items-center rounded bg-bank-red px-5 text-[13px] font-bold text-white hover:bg-bank-redDark"
+                  className="inline-flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded bg-bank-red px-3.5 text-center text-[13px] font-bold leading-tight text-white hover:bg-bank-redDark sm:px-5"
                 >
-                  Open an account
+                  <span className="hidden sm:inline">Open an account</span>
+                  <span className="sm:hidden">Open account</span>
                 </Link>
               </>
             )}
@@ -149,7 +150,7 @@ export default async function LandingPage() {
               Earn <span className="text-bank-red">$300</span> when you open a new checking account
             </h1>
             <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-gray-700">
-              Set up direct deposit with Advantage SafeBalance Banking® and we&apos;ll deposit a $300
+              Set up direct deposit with Everyday Checking and we&apos;ll deposit a $300
               welcome bonus. Plus, enjoy no monthly maintenance fees and access to 15,000+ ATMs.
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-3">

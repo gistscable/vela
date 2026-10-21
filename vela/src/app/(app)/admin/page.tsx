@@ -4,7 +4,7 @@ import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatCents, formatDateTime } from "@/lib/money";
 import { paymentMethodLabel, safeCounterparty, safeTransactionDescription } from "@/lib/external-account-display";
-import { approveTransactionGroupAction, adminCreditAction, adminDeleteActivityAction, adminLockUserAction, adminPauseHistoryAction, adminResetAuthenticatorAction, adminUnlockUserAction, rejectTransactionGroupAction, reviewEnrollmentAction, reviewExternalAccountAction, reviewProductApplicationAction } from "@/lib/admin-actions";
+import { adminEnrollCustomerAction, approveTransactionGroupAction, adminCreditAction, adminDeleteActivityAction, adminLockUserAction, adminPauseHistoryAction, adminResetAuthenticatorAction, adminUnlockUserAction, rejectTransactionGroupAction, reviewEnrollmentAction, reviewExternalAccountAction, reviewProductApplicationAction } from "@/lib/admin-actions";
 import { accountTypeLabel, productByCode, productKindLabel } from "@/lib/products";
 import { PageHeader } from "@/components/transactions";
 import { Alert, Button, Input, Panel, Select, Textarea } from "@/components/ui";
@@ -49,6 +49,10 @@ const NOTICES: Record<string, { tone: "success" | "error" | "info" | "warn"; tit
   "lock-confirm": { tone: "error", title: "Confirmation required", body: "Confirm the lockout before restricting this customer's access." },
   "lock-self": { tone: "error", title: "Cannot lock this user", body: "Administrators cannot lock their own access." },
   "customer-unavailable": { tone: "info", title: "Customer not updated", body: "That customer is no longer available for this action." },
+  "enroll-email-exists": { tone: "error", title: "Email already in use", body: "An account with that email already exists." },
+  "enroll-username-exists": { tone: "error", title: "Username unavailable", body: "That Username / User ID is already taken." },
+  "enroll-invalid-username": { tone: "error", title: "Username invalid", body: "Use 3–32 letters, numbers, periods, underscores or hyphens (no @). Case-insensitive." },
+  "enroll-error": { tone: "error", title: "Could not enroll customer", body: "Check the name, email, username and passcode (8+ characters) and try again." },
   "activity-deleted": { tone: "success", title: "Activity deleted", body: "The selected entry was removed and the account balance was rebuilt from remaining posted activity." },
   "activity-confirm": { tone: "error", title: "Confirmation required", body: "Confirm deletion before removing activity. This cannot be undone." },
   "activity-unavailable": { tone: "info", title: "Activity not deleted", body: "That entry is no longer on the account." },
@@ -176,6 +180,29 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
 
       <section id="approvals" className="scroll-mt-20 space-y-4">
         <SectionHeading title="Approvals" description="Everything waiting on an administrator decision." />
+        <Panel title="Enroll new customer" bodyClassName="p-5">
+          <p className="mb-4 text-[11px] leading-relaxed text-gray-600">Create a customer account directly. This is the only way to enroll now that public self-enrollment is disabled. The customer can sign in immediately with the Username / User ID and passcode you set.</p>
+          <form action={adminEnrollCustomerAction} className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input label="First name" name="firstName" placeholder="First name" autoComplete="given-name" required />
+              <Input label="Last name" name="lastName" placeholder="Last name" autoComplete="family-name" required />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input label="Email address" name="email" type="email" autoComplete="email" placeholder="customer@example.com" required />
+              <Input label="Username / User ID" name="username" type="text" placeholder="e.g. sam.lee" autoCapitalize="none" autoCorrect="off" spellCheck={false} required />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input label="Phone (optional)" name="phone" type="tel" autoComplete="tel" placeholder="(555) 555-0100" />
+              <Input label="Temporary passcode" name="password" type="password" autoComplete="new-password" placeholder="At least 8 characters" required />
+            </div>
+            <Select name="historyChoice" label="Starting account history" defaultValue="" required>
+              <option value="" disabled>Choose an option</option>
+              <option value="include">Include generated history · Jan 2023–Oct 2026</option>
+              <option value="none">No generated history · keep at $0</option>
+            </Select>
+            <Button type="submit" variant="navy" className="w-full">Enroll customer</Button>
+          </form>
+        </Panel>
       <Panel title="Transactions awaiting approval" bodyClassName="p-0">
         {queue.length === 0 ? (
           <div className="px-5 py-10 text-center">

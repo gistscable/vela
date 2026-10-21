@@ -79,7 +79,7 @@ export function Input({ label, error, hint, icon, trailing, className = "", id, 
         )}
         <input
           id={inputId}
-          className={`h-10 w-full rounded border bg-white px-3 text-[14px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 ${
+          className={`h-10 w-full rounded border bg-white px-3 text-[16px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 sm:text-[14px] ${
             icon ? "pl-9" : ""
           } ${
             error
@@ -154,7 +154,7 @@ export function Select({
       )}
       <select
         id={selectId}
-        className={`h-10 w-full rounded border border-gray-400 bg-white px-2.5 text-[14px] text-gray-900 focus:border-bank-blue focus:outline-none focus:ring-2 focus:ring-blue-100 ${className}`}
+        className={`h-10 w-full rounded border border-gray-400 bg-white px-2.5 text-[16px] text-gray-900 focus:border-bank-blue focus:outline-none focus:ring-2 focus:ring-blue-100 sm:text-[14px] ${className}`}
         {...rest}
       >
         {children}
@@ -179,7 +179,7 @@ export function Textarea({
       )}
       <textarea
         id={taId}
-        className={`min-h-[80px] w-full rounded border border-gray-400 bg-white px-3 py-2 text-[14px] text-gray-900 placeholder:text-gray-400 focus:border-bank-blue focus:outline-none focus:ring-2 focus:ring-blue-100 ${className}`}
+        className={`min-h-[80px] w-full rounded border border-gray-400 bg-white px-3 py-2 text-[16px] text-gray-900 placeholder:text-gray-400 focus:border-bank-blue focus:outline-none focus:ring-2 focus:ring-blue-100 sm:text-[14px] ${className}`}
         {...rest}
       />
     </div>
