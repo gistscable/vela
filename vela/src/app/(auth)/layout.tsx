@@ -10,7 +10,7 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
   if (await getSessionUserId()) redirect("/dashboard");
 
   return (
-    <div className="min-h-screen bg-bank-bg">
+    <div className="flex min-h-screen flex-col bg-bank-bg">
       {/* Compact bank header */}
       <header className="border-b border-gray-200 bg-white">
         <div className="mx-auto flex max-w-[1180px] items-center justify-between px-4 py-3.5">
@@ -31,8 +31,8 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1180px] px-4 py-10">
-        <div className="grid gap-8 lg:grid-cols-[1.4fr_1fr]">
+      <main className="mx-auto flex w-full max-w-[1180px] flex-1 px-4 py-10">
+        <div className="grid w-full gap-8 lg:grid-cols-[1.4fr_1fr]">
           <div>{children}</div>
 
           {/* Security sidebar */}
