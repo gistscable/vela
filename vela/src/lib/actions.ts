@@ -64,13 +64,20 @@ export async function loginAction(_prev: ActionState, fd: FormData): Promise<Act
 }
 
 export async function signupAction(_prev: ActionState, fd: FormData): Promise<ActionState> {
-  const email = str(fd, "email").toLowerCase();
+  // Public self-enrollment is disabled on hosted production (admin-provisioned only).
+  // Keep it working in tests/dev when ALLOW_PUBLIC_SIGNUP is set, so Vitest/e2e can still exercise the approval flow.
+  const allowPublicSignup = process.env.NODE_ENV !== "production" || process.env.ALLOW_PUBLIC_SIGNUP === "true";
+  if (!allowPublicSignup) {
+    return { error: "Online self-enrollment is not available. To open an account, contact FMB — visit a branch, or call Support." };
+  }
+
+  const email = String(fd.get("email") ?? "").trim().toLowerCase();
   const password = String(fd.get("password") ?? "");
-  const firstName = str(fd, "firstName");
-  const lastName = str(fd, "lastName");
+  const firstName = String(fd.get("firstName") ?? "").trim();
+  const lastName = String(fd.get("lastName") ?? "").trim();
   if (!firstName || !lastName || !email) return { error: "Enter your name and email address." };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Enter a valid email address." };
-  const username = validateUsername(str(fd, "username"));
+  const username = validateUsername(String(fd.get("username") ?? "").trim());
   if (!username.ok) return { error: username.error };
   if (password.length < 8) return { error: "Your passcode must be at least 8 characters." };
   if (await db.user.findUnique({ where: { email } })) return { error: "An enrollment with this email already exists. Try signing in instead." };
@@ -86,18 +93,15 @@ export async function signupAction(_prev: ActionState, fd: FormData): Promise<Ac
         passwordHash: await bcrypt.hash(password, 10),
         firstName,
         lastName,
-        phone: str(fd, "phone") || null,
+        phone: String(fd.get("phone") ?? "").trim() || null,
         enrollmentStatus: "PENDING_APPROVAL",
       },
     });
   } catch (error) {
-    // The unique indexes are the source of truth if two enrollments race past the checks above.
     if (!isUniqueViolation(error)) throw error;
     if (await db.user.findUnique({ where: { email } })) return { error: "An enrollment with this email already exists. Try signing in instead." };
     return { error: USERNAME_UNAVAILABLE_MESSAGE };
   }
-  // Standard zero-balance accounts; the admin may optionally add generated
-  // 2023-2026 history when approving the enrollment.
   const suffix = Math.floor(100000 + Math.random() * 899999);
   await db.account.create({ data: { userId: user.id, type: "CHECKING", name: "Everyday Checking", accountNumber: `1847${suffix}14`, routingNumber: "021000021", balance: 0 } });
   await db.account.create({ data: { userId: user.id, type: "SAVINGS", name: "High-Yield Savings", accountNumber: `1847${suffix}22`, routingNumber: "021000021", balance: 0, apy: 4.25 } });

@@ -60,8 +60,8 @@ export const PRODUCTS: Product[] = [
   {
     code: "BUSINESS_CHECKING",
     kind: "ACCOUNT",
-    name: "Business Advantage Checking",
-    shortName: "Business Adv Checking",
+    name: "Business Checking",
+    shortName: "Business Checking",
     description: "Checking built for small business — unlimited transactions and cash management tools.",
     category: "business",
     accountType: "BUSINESS_CHECKING",
@@ -69,8 +69,8 @@ export const PRODUCTS: Product[] = [
   {
     code: "BUSINESS_SAVINGS",
     kind: "ACCOUNT",
-    name: "Business Advantage Savings",
-    shortName: "Business Adv Savings",
+    name: "Business Savings",
+    shortName: "Business Savings",
     description: "Set aside operating reserves and earn 3.50% APY.",
     category: "business",
     accountType: "BUSINESS_SAVINGS",
@@ -89,7 +89,7 @@ export const PRODUCTS: Product[] = [
   {
     code: "CREDIT_CASH_REWARDS",
     kind: "CREDIT_CARD",
-    name: "Business Advantage Cash Rewards",
+    name: "Business Cash Rewards",
     shortName: "Cash Rewards",
     description: "Earn 3% cash back on office supplies and 2% on gas. $10,000 credit line.",
     category: "cards",

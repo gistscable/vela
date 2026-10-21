@@ -4,10 +4,13 @@ import { randomInt } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
 import { requireAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { containsLongAccountLikeNumber, lastFourDigits, safeInstitutionName, safeSenderName } from "@/lib/external-account-display";
+import { isUsernameTaken, USERNAME_UNAVAILABLE_MESSAGE } from "@/lib/identity";
 import { parseCents } from "@/lib/money";
+import { validateUsername } from "@/lib/username";
 import { ensureUserHistory } from "@/lib/history";
 import { applyProductHistory } from "@/lib/product-history";
 import { allocateAccountNumber, allocateCardLast4, isCheckingLikeType, productByCode, ROUTING_NUMBER } from "@/lib/products";
@@ -252,6 +255,70 @@ export async function reviewEnrollmentAction(formData: FormData) {
   if (rejected !== 1) redirect("/admin?notice=enrollment-unavailable");
   refreshApprovalViews();
   redirect("/admin?notice=enrollment-rejected");
+}
+
+export async function adminEnrollCustomerAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const firstName = String(formData.get("firstName") ?? "").trim();
+  const lastName = String(formData.get("lastName") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const usernameRaw = String(formData.get("username") ?? "").trim();
+  const phone = String(formData.get("phone") ?? "").trim() || null;
+  const password = String(formData.get("password") ?? "");
+  const historyChoice = String(formData.get("historyChoice") ?? "").trim();
+
+  if (!firstName || !lastName || !email) redirect("/admin?notice=enroll-error");
+  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) redirect("/admin?notice=enroll-error");
+  const username = validateUsername(usernameRaw);
+  if (!username.ok) redirect("/admin?notice=enroll-invalid-username");
+  if (password.length < 8) redirect("/admin?notice=enroll-error");
+  if (!["include", "none"].includes(historyChoice)) redirect("/admin?notice=enrollment-history-choice");
+  if (await db.user.findUnique({ where: { email } })) redirect("/admin?notice=enroll-email-exists");
+  if (await isUsernameTaken(db, username.normalized)) redirect("/admin?notice=enroll-username-exists");
+
+  let userId: string;
+  try {
+    const user = await db.user.create({
+      data: {
+        email,
+        username: username.username,
+        usernameNormalized: username.normalized,
+        passwordHash: await bcrypt.hash(password, 10),
+        firstName,
+        lastName,
+        phone,
+        enrollmentStatus: "APPROVED",
+        enrollmentReviewedById: admin.id,
+        enrollmentReviewedAt: new Date(),
+      },
+    });
+    userId = user.id;
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "";
+    if (msg.includes("Unique constraint") || msg.includes("unique")) {
+      if (await db.user.findUnique({ where: { email } })) redirect("/admin?notice=enroll-email-exists");
+      redirect("/admin?notice=enroll-username-exists");
+    }
+    console.error("Admin enroll failed", error);
+    redirect("/admin?notice=enroll-error");
+  }
+
+  const suffix = Math.floor(100000 + Math.random() * 899999);
+  await db.account.create({ data: { userId, type: "CHECKING", name: "Everyday Checking", accountNumber: `1847${suffix}14`, routingNumber: ROUTING_NUMBER, balance: 0 } });
+  await db.account.create({ data: { userId, type: "SAVINGS", name: "High-Yield Savings", accountNumber: `1847${suffix}22`, routingNumber: ROUTING_NUMBER, balance: 0, apy: 4.25 } });
+
+  if (historyChoice === "include") {
+    try {
+      await ensureUserHistory(db, userId);
+    } catch (error) {
+      console.error("Failed to provision history for admin-enrolled user", userId, error);
+      refreshApprovalViews();
+      redirect("/admin?notice=enrollment-history-error");
+    }
+  }
+
+  refreshApprovalViews();
+  redirect(historyChoice === "include" ? "/admin?notice=enrollment-approved-history" : "/admin?notice=enrollment-approved");
 }
 
 export async function reviewProductApplicationAction(formData: FormData) {

@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Open an account — FMB" };
 
 const CATEGORIES: { id: Product["category"]; title: string; body: string }[] = [
   { id: "personal", title: "Personal banking", body: "Additional checking, savings, money market and CD accounts." },
-  { id: "business", title: "Business banking", body: "Business Advantage checking and savings for operating funds." },
+  { id: "business", title: "Business banking", body: "Business checking and savings for operating funds." },
   { id: "cards", title: "Debit and credit cards", body: "Apply for a debit card on a checking account, or a credit card with its own balance. Cards appear below your accounts after approval." },
 ];
 
