@@ -33,17 +33,17 @@ const MAIN_NAV = [
 ];
 
 const PRODUCT_TILES = [
-  { icon: Landmark, title: "Checking accounts", body: "Everyday banking with no monthly fees, overdraft protection, and a debit card.", link: "Compare checking" },
-  { icon: PiggyBank, title: "Savings & CDs", body: "Earn up to 4.25% APY with our High-Yield Online Savings account.", link: "Compare savings" },
-  { icon: CreditCard, title: "Credit cards", body: "Cash back, travel rewards, and low introductory APR offers.", link: "Find a card" },
-  { icon: Home, title: "Home loans", body: "Mortgage rates from 5.875% APR. Prequalify in minutes with no impact to credit.", link: "Explore mortgages" },
+  { icon: Landmark, title: "Checking accounts", body: "Manage everyday spending with convenient account access and a debit card.", link: "Explore checking" },
+  { icon: PiggyBank, title: "Savings & CDs", body: "Organize your savings and plan for the goals that matter to you.", link: "Explore savings" },
+  { icon: CreditCard, title: "Credit cards", body: "Find card features for everyday purchases, travel, and recurring expenses.", link: "Explore cards" },
+  { icon: Home, title: "Home loans", body: "Explore options and guidance for planning your next home purchase.", link: "Explore home loans" },
 ];
 
-const RATE_ROWS = [
-  { product: "High-Yield Online Savings", rate: "4.10%", apy: "4.25%", note: "Minimum $500 to open" },
-  { product: "12-Month Certificate of Deposit", rate: "3.90%", apy: "4.00%", note: "Minimum $1,000 to open" },
-  { product: "60-Month Certificate of Deposit", rate: "3.45%", apy: "3.50%", note: "Minimum $1,000 to open" },
-  { product: "Everyday Checking", rate: "0.02%", apy: "0.02%", note: "No monthly maintenance fee" },
+const FEATURE_ROWS = [
+  { product: "Everyday accounts", detail: "Keep track of balances and recent activity." },
+  { product: "Savings tools", detail: "Organize savings around your plans and goals." },
+  { product: "Card services", detail: "Review card details and manage everyday purchases." },
+  { product: "Account insights", detail: "Find statements, transactions, and helpful account details." },
 ];
 
 const FOOTER_COLS = [
@@ -75,8 +75,8 @@ export default async function LandingPage() {
       <div className="border-b border-gray-200 bg-gray-100">
         <div className="mx-auto flex h-9 max-w-[1180px] items-center justify-between px-4">
           <nav className="hidden items-center gap-1 text-[11px] text-gray-600 sm:flex">
-            <a href="#rates" className="flex items-center gap-1.5 px-2.5 py-1 hover:text-bank-navy hover:underline">
-              <MapPin className="h-3 w-3" /> Locations
+            <a href="#products" className="flex items-center gap-1.5 px-2.5 py-1 hover:text-bank-navy hover:underline">
+              <Landmark className="h-3 w-3" /> Products
             </a>
             <a href="#security" className="px-2.5 py-1 hover:text-bank-navy hover:underline">Help & Support</a>
             <a href="#security" className="px-2.5 py-1 hover:text-bank-navy hover:underline">Contact Us</a>
@@ -118,7 +118,7 @@ export default async function LandingPage() {
                 href="/dashboard"
                 className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded bg-bank-red px-4 text-[13px] font-bold text-white hover:bg-bank-redDark sm:px-5"
               >
-                Online Banking <ArrowRight className="h-3.5 w-3.5 shrink-0" />
+                My account <ArrowRight className="h-3.5 w-3.5 shrink-0" />
               </Link>
             ) : (
               <>
@@ -132,8 +132,7 @@ export default async function LandingPage() {
                   href="/signup"
                   className="inline-flex h-9 shrink-0 items-center justify-center whitespace-nowrap rounded bg-bank-red px-3.5 text-center text-[13px] font-bold leading-tight text-white hover:bg-bank-redDark sm:px-5"
                 >
-                  <span className="hidden sm:inline">Open an account</span>
-                  <span className="sm:hidden">Open account</span>
+                  <span>Enroll</span>
                 </Link>
               </>
             )}
@@ -145,34 +144,27 @@ export default async function LandingPage() {
       <section className="border-b border-gray-200 bg-bank-sand">
         <div className="mx-auto grid max-w-[1180px] items-stretch gap-0 px-4 lg:grid-cols-[1.15fr_1fr]">
           <div className="py-10 pr-0 lg:py-14 lg:pr-12">
-            <p className="text-[12px] font-bold uppercase tracking-[0.18em] text-bank-red">Limited-time offer</p>
+            <p className="text-[12px] font-bold uppercase tracking-[0.18em] text-bank-red">Everyday banking, made simple</p>
             <h1 className="mt-3 text-[34px] font-bold leading-[1.15] tracking-tight text-bank-navy sm:text-[42px]">
-              Earn <span className="text-bank-red">$300</span> when you open a new checking account
+              Make your money easier to manage.
             </h1>
             <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-gray-700">
-              Set up direct deposit with Everyday Checking and we&apos;ll deposit a $300
-              welcome bonus. Plus, enjoy no monthly maintenance fees and access to 15,000+ ATMs.
+              Bring everyday spending, savings, and plans for what comes next together with clear, convenient account tools.
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
                 href={signedIn ? "/dashboard" : "/signup"}
                 className="inline-flex h-11 items-center rounded bg-bank-red px-7 text-[14px] font-bold text-white hover:bg-bank-redDark"
               >
-                {signedIn ? "View your accounts" : "Open an account"}
+                {signedIn ? "View your accounts" : "Enroll"}
               </Link>
               <a
-                href="#rates"
+                href="#features"
                 className="inline-flex h-11 items-center rounded border border-bank-navy bg-white px-7 text-[14px] font-bold text-bank-navy hover:bg-gray-50"
               >
-                See today&apos;s rates
+                Explore features
               </a>
             </div>
-            <p className="mt-5 max-w-xl text-[10.5px] leading-relaxed text-gray-500">
-              Offer valid for new personal checking customers through 12/31/2026. Qualifying direct
-              deposits totaling $2,000 or more must be received within 90 days of account opening.
-              Bonus will be deposited within 60 days of meeting requirements. Limit one bonus per
-              customer. See offer details for full terms.
-            </p>
           </div>
 
           <div className="relative min-h-[320px] lg:min-h-full">
@@ -182,16 +174,10 @@ export default async function LandingPage() {
               alt="Customers reviewing their finances at home"
               className="absolute inset-0 h-full w-full object-cover"
             />
-            {/* rate card overlay */}
             <div className="absolute bottom-5 left-5 right-5 border border-gray-300 bg-white p-5 shadow-dropdown">
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-500">High-Yield Online Savings</p>
-              <div className="mt-1.5 flex items-baseline gap-2">
-                <span className="text-[38px] font-bold leading-none text-bank-red">4.25%</span>
-                <span className="text-[14px] font-semibold text-gray-600">APY</span>
-              </div>
-              <p className="mt-1.5 text-[11px] text-gray-500">
-                Annual Percentage Yield as of Oct 15, 2026. Minimum $500 to open. Rates subject to change.
-              </p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-gray-500">Everyday account tools</p>
+              <p className="mt-1.5 text-[24px] font-bold leading-tight text-bank-navy">A clear view of what matters.</p>
+              <p className="mt-1.5 text-[11px] text-gray-500">Manage your accounts and stay connected to your plans.</p>
             </div>
           </div>
         </div>
@@ -208,7 +194,7 @@ export default async function LandingPage() {
               </div>
               <h3 className="mt-3.5 text-[15px] font-bold text-bank-navy">{t.title}</h3>
               <p className="mt-1.5 flex-1 text-[12.5px] leading-relaxed text-gray-600">{t.body}</p>
-              <a href="#rates" className="mt-3 inline-flex items-center gap-1 text-[12.5px] font-semibold text-bank-link underline underline-offset-2 hover:text-bank-blueDark">
+              <a href="#features" className="mt-3 inline-flex items-center gap-1 text-[12.5px] font-semibold text-bank-link underline underline-offset-2 hover:text-bank-blueDark">
                 {t.link} <ChevronRight className="h-3.5 w-3.5" />
               </a>
             </div>
@@ -216,41 +202,31 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* ------------------------------- RATES ------------------------------- */}
-      <section id="rates" className="border-y border-gray-200 bg-gray-50">
+      {/* ---------------------------- EVERYDAY FEATURES ---------------------------- */}
+      <section id="features" className="border-y border-gray-200 bg-gray-50">
         <div className="mx-auto max-w-[1180px] px-4 py-12">
-          <div className="flex items-end justify-between">
+          <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h2 className="text-[22px] font-bold text-bank-navy">Today&apos;s rates</h2>
-              <p className="mt-1 text-[12px] text-gray-500">Rates as of October 15, 2026. Rates subject to change.</p>
+              <h2 className="text-[22px] font-bold text-bank-navy">Tools for everyday life</h2>
+              <p className="mt-1 text-[12px] text-gray-500">Straightforward ways to stay organized and plan ahead.</p>
             </div>
-            <a href="#products" className="text-[12.5px] font-semibold text-bank-link underline underline-offset-2 hover:text-bank-blueDark">
-              Compare all products
-            </a>
+            <Link href={signedIn ? "/dashboard" : "/signup"} className="text-[12.5px] font-semibold text-bank-link underline underline-offset-2 hover:text-bank-blueDark">
+              {signedIn ? "View your accounts" : "Enroll"}
+            </Link>
           </div>
           <div className="mt-6 overflow-x-auto border border-gray-300 bg-white">
             <table className="w-full text-left text-[13px]">
               <thead>
                 <tr className="border-b border-gray-300 bg-bank-sand text-[11px] uppercase tracking-wide text-bank-navy">
-                  <th className="px-5 py-3 font-bold">Product</th>
-                  <th className="px-5 py-3 font-bold">Interest rate</th>
-                  <th className="px-5 py-3 font-bold">APY</th>
-                  <th className="hidden px-5 py-3 font-bold sm:table-cell">Details</th>
-                  <th className="px-5 py-3" />
+                  <th className="px-5 py-3 font-bold">Feature</th>
+                  <th className="px-5 py-3 font-bold">How it helps</th>
                 </tr>
               </thead>
               <tbody>
-                {RATE_ROWS.map((r) => (
-                  <tr key={r.product} className="border-b border-gray-200 last:border-0 hover:bg-gray-50">
-                    <td className="px-5 py-3.5 font-semibold text-bank-navy">{r.product}</td>
-                    <td className="px-5 py-3.5 tabular-nums text-gray-800">{r.rate}</td>
-                    <td className="px-5 py-3.5 font-bold tabular-nums text-bank-red">{r.apy}</td>
-                    <td className="hidden px-5 py-3.5 text-gray-500 sm:table-cell">{r.note}</td>
-                    <td className="px-5 py-3.5 text-right">
-                      <Link href={signedIn ? "/transfer?tab=deposit" : "/signup"} className="font-semibold text-bank-link underline underline-offset-2 hover:text-bank-blueDark">
-                        Open now
-                      </Link>
-                    </td>
+                {FEATURE_ROWS.map((row) => (
+                  <tr key={row.product} className="border-b border-gray-200 last:border-0 hover:bg-gray-50">
+                    <td className="px-5 py-3.5 font-semibold text-bank-navy">{row.product}</td>
+                    <td className="px-5 py-3.5 text-gray-600">{row.detail}</td>
                   </tr>
                 ))}
               </tbody>
@@ -317,12 +293,12 @@ export default async function LandingPage() {
       {/* ----------------------------- HOW IT WORKS ----------------------------- */}
       <section className="border-y border-gray-200 bg-bank-sand">
         <div className="mx-auto max-w-[1180px] px-4 py-12">
-          <h2 className="text-[22px] font-bold text-bank-navy">Open an account in three steps</h2>
+          <h2 className="text-[22px] font-bold text-bank-navy">Getting started with FMB</h2>
           <div className="mt-7 grid gap-5 md:grid-cols-3">
             {[
-              { n: "1", icon: Users, title: "Tell us about you", body: "Apply online in under 5 minutes with your basic information. No paperwork required." },
-              { n: "2", icon: Briefcase, title: "Fund your account", body: "Transfer from another bank, set up direct deposit, or deposit a check in the app." },
-              { n: "3", icon: Calculator, title: "Start banking", body: "Pay bills, transfer money, and track your spending — all from Online Banking." },
+              { n: "1", icon: Users, title: "Enroll", body: "Share a few basic details to get started." },
+              { n: "2", icon: Briefcase, title: "Set up your account", body: "Choose how to organize your everyday spending and savings." },
+              { n: "3", icon: Calculator, title: "Stay in control", body: "Review account activity and manage everyday financial tasks." },
             ].map((s) => (
               <div key={s.n} className="border border-gray-300 bg-white p-6">
                 <div className="flex h-8 w-8 items-center justify-center rounded bg-bank-red text-[13px] font-bold text-white">
@@ -344,15 +320,15 @@ export default async function LandingPage() {
           <div>
             <h2 className="text-[24px] font-bold text-white">Ready to experience better banking?</h2>
             <p className="mt-1.5 text-[13.5px] text-white/75">
-              Join FMB today — it takes less than five minutes.
+              Explore account features and everyday tools from FMB.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
             <Link href={signedIn ? "/dashboard" : "/signup"} className="inline-flex h-11 items-center rounded bg-bank-red px-7 text-[14px] font-bold text-white hover:bg-bank-redDark">
-              Open an account
+              {signedIn ? "View your accounts" : "Enroll"}
             </Link>
             <Link href={signedIn ? "/transfer" : "/login"} className="inline-flex h-11 items-center rounded border border-white/40 px-7 text-[14px] font-bold text-white hover:bg-white/10">
-              {signedIn ? "Make a transfer" : "Log in to Online Banking"}
+              {signedIn ? "Make a transfer" : "Log in"}
             </Link>
           </div>
         </div>
@@ -383,7 +359,7 @@ export default async function LandingPage() {
               <span>© 2026 FMB.</span>
             </div>
             <p className="mt-4 text-[10px] text-gray-500">
-              Privacy Policy · Terms of Use · Accessibility · Online Banking Agreement · Your Privacy Choices
+              Privacy Policy · Terms of Use · Accessibility · Service Agreement · Your Privacy Choices
             </p>
           </div>
         </div>

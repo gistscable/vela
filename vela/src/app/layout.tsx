@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: `${BRAND.name} — Retail Banking`,
   description:
-    `Banking products and services from ${BRAND.name}, including checking, savings, cards and Online Banking.`,
+    `Explore checking, savings, cards, and helpful account tools from ${BRAND.name}.`,
   icons: {
     icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
   },
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     type: "website",
     siteName: BRAND.name,
     title: `${BRAND.name} — Retail Banking`,
-    description: `Everyday banking, made clear and simple. Explore checking, savings, cards and Online Banking from ${BRAND.name}.`,
+    description: `Everyday banking, made clear and simple. Explore checking, savings, and card features from ${BRAND.name}.`,
     images: [{ url: "/fmb-social.png", width: 1200, height: 630, alt: `${BRAND.name} — Banking that moves with you` }],
   },
   twitter: {
