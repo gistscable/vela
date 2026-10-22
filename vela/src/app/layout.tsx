@@ -2,10 +2,10 @@ import type { Metadata, Viewport } from "next";
 import { BRAND } from "@/lib/brand";
 import "./globals.css";
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  process.env.URL ??
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+// Use the production URL as the canonical share origin so preview builds or local
+// development settings cannot emit localhost or a stale host in social metadata.
+const siteUrl = "https://myfmb2.netlify.app";
+const shareImage = new URL("/fmb-social.png", siteUrl);
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -24,16 +24,17 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
+    url: siteUrl,
     siteName: BRAND.name,
     title: `${BRAND.name} — Retail Banking`,
     description: `Everyday banking, made clear and simple. Explore checking, savings, and card features from ${BRAND.name}.`,
-    images: [{ url: "/fmb-social.png", width: 1200, height: 630, alt: `${BRAND.name} — Banking that moves with you` }],
+    images: [{ url: shareImage, width: 1200, height: 630, alt: `${BRAND.name} — Banking that moves with you` }],
   },
   twitter: {
     card: "summary_large_image",
     title: `${BRAND.name} — Retail Banking`,
     description: `Everyday banking, made clear and simple.`,
-    images: ["/fmb-social.png"],
+    images: [shareImage],
   },
 };
 
