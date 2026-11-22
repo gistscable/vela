@@ -498,7 +498,10 @@ export async function adminCreditAction(formData: FormData) {
 
   const amount = parseCents(parsed.data.amountText);
   const activityDate = parseActivityDate(parsed.data.activityDateText);
-  if (!amount || amount < 100 || amount > 10_000_000 || !activityDate) redirect("/admin?notice=credit-error");
+  if (!amount || amount < 100 || !activityDate) redirect("/admin?notice=credit-error");
+  // Integer cents: wires allow up to $10 million; ACH retains its $100,000 cap.
+  const maxAmount = parsed.data.paymentMethod === "WIRE" ? 1_000_000_000 : 10_000_000;
+  if (amount > maxAmount) redirect("/admin?notice=credit-limit");
 
   let targetAccounts: { id: string }[];
   if (parsed.data.recipient === ALL_CUSTOMERS) {
