@@ -19,6 +19,7 @@ const NOTICES: Record<string, { tone: "success" | "error" | "info" | "warn"; tit
   account: { tone: "error", title: "Account unavailable", body: "One of the accounts is closed or inactive. The entry remains unposted." },
   error: { tone: "error", title: "Could not approve transaction", body: "No balance change was made. Please review the item and try again." },
   "credit-error": { tone: "error", title: "Payment not recorded", body: "Check the recipient, sender, method, amount, activity date and optional source details." },
+  "credit-limit": { tone: "error", title: "Payment exceeds the limit", body: "The maximum per recipient is $10,000,000.00 for wire payments or $100,000.00 for ACH payments. No payment was recorded." },
   "credit-confirm": { tone: "error", title: "Confirmation required", body: "Confirm the sender, destination and amount before submitting this payment." },
   "credit-submitted": { tone: "success", title: "Payment submitted for approval", body: "The selected recipient account or accounts will be updated only after approval." },
   "challenge-issued": { tone: "success", title: "Verification challenge started", body: "Share the displayed amounts with the customer through a separate trusted channel." },
@@ -435,7 +436,7 @@ export default async function AdminPage({ searchParams }: { searchParams: Promis
             <Input name="senderName" label="Payment from · individual or organization" placeholder="Jordan Lee or Acme Foundation" autoComplete="off" required maxLength={65} />
             <Input name="sourceName" label="Source bank or institution (optional)" placeholder="Example Credit Union" autoComplete="off" maxLength={80} />
             <Input name="sourceLast4" label="Source account last four digits (optional)" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} placeholder="4321" autoComplete="off" />
-            <Input name="amount" label="Amount per recipient" inputMode="decimal" placeholder="$0.00" required />
+            <Input name="amount" label="Amount per recipient" inputMode="decimal" placeholder="$0.00" hint="Minimum $1.00. Maximum per recipient: wire $10,000,000.00; ACH $100,000.00." required />
             <Input name="activityDate" label="Date shown in account activity" type="date" defaultValue={today} hint="This calendar date is used in the customer's transaction history." required />
             <label className="flex items-start gap-2 text-[10.5px] leading-relaxed text-gray-600">
               <input type="checkbox" name="confirm" value="yes" required className="mt-0.5" />

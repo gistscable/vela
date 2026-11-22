@@ -174,6 +174,46 @@ describe("admin customer payments", () => {
     expect((await db.account.findUnique({ where: { id: secondChecking.id } }))?.balance).toBe(5_000);
   });
 
+  it.each([
+    ["WIRE", "$4,500,000.00", 450_000_000, true],
+    ["WIRE", "$10,000,000.00", 1_000_000_000, true],
+    ["WIRE", "10000000.01", 1_000_000_001, false],
+    ["ACH", "100000.00", 10_000_000, true],
+    ["ACH", "100000.01", 10_000_001, false],
+    ["ACH", "4500000", 450_000_000, false],
+  ])("enforces the %s limit for %s and preserves approval", async (paymentMethod, amount, cents, accepted) => {
+    const admin = await addUser("limit-admin@example.test", { role: "ADMIN" });
+    const customer = await addUser("limit-customer@example.test");
+    const checking = await addAccount(customer.id, "CHECKING", "300000000002");
+    await auth.setSessionCookie(admin.id);
+
+    const result = await run(() => adminActions.adminCreditAction(form({
+      recipient: checking.id,
+      paymentMethod,
+      senderName: "Example Sender",
+      sourceName: "",
+      sourceLast4: "",
+      amount,
+      activityDate: "2026-11-22",
+      confirm: "yes",
+    })));
+    expect(result.redirectedTo).toBe(`/admin?notice=${accepted ? "credit-submitted" : "credit-limit"}`);
+    expect((await db.account.findUniqueOrThrow({ where: { id: checking.id } })).balance).toBe(0);
+    const payments = await db.transaction.findMany({ where: { accountId: checking.id } });
+    expect(payments).toHaveLength(accepted ? 1 : 0);
+    if (accepted) {
+      expect(payments[0]).toMatchObject({ amount: cents, paymentMethod, status: "PENDING_APPROVAL" });
+      const approved = await run(() => adminActions.approveTransactionGroupAction(form({
+        groupKey: `ref:${payments[0].reference}`,
+      })));
+      expect(approved.redirectedTo).toBe("/admin?notice=approved");
+      expect((await db.account.findUniqueOrThrow({ where: { id: checking.id } })).balance).toBe(cents);
+      expect(await db.transaction.findUniqueOrThrow({ where: { id: payments[0].id } })).toMatchObject({
+        status: "COMPLETED", balanceAfter: cents,
+      });
+    }
+  });
+
   it("rejects invalid calendar dates and an unconfirmed payment", async () => {
     const admin = await addUser("payments-validation-admin@example.test", { role: "ADMIN" });
     const customer = await addUser("payment-recipient@example.test");
